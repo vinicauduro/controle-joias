@@ -126,6 +126,7 @@
   .atalhos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 6px; }
   .atalhos .btn { padding: 16px 10px; font-size: 1rem; border-radius: 14px; }
   .btn-filtros { flex: none; }
+  .subtit { font-size: .95rem; margin: 16px 0 6px; }
   .instalar { display: flex; gap: 10px; align-items: center; }
   .instalar .ic { font-size: 1.8rem; }
   .login { position: fixed; inset: 0; z-index: 70; background: linear-gradient(160deg, #8a6d1d, #d8b74e); display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
@@ -680,6 +681,7 @@ function formVenda(preSel) {
       <div><label>Taxa da máquina (R$)</label><input id="vTaxa" inputmode="decimal" value="0"></div>
       <div><label>Embalagem</label><select id="vEmb">${opcoesEmbalagem(embPadrao)}</select></div>
     </div>
+    <div class="mini" style="margin-top:4px"><a href="#" onclick="event.preventDefault();abrirConfig('cfTaxas')" style="color:var(--ouro-escuro)">⚙️ Editar taxas e embalagens</a></div>
     <div id="vEmbOutraBox" class="oculto"><label>Valor da embalagem (R$)</label><input id="vEmbV" inputmode="decimal" value="0"></div>
     <div class="card" style="margin-top:10px" id="vResumo"></div>
     <label>Observação</label><input id="vObs">
@@ -889,25 +891,27 @@ function excluirCliente(id) { if (!confirm('Excluir esta cliente?')) return; db.
 
 /* ---------- tela: mais (relatórios, configurações, importação, backup) ---------- */
 function telaMais() {
-  return `<h2>Relatórios</h2><div class="lista">
+  return `  <h2>⚙️ Configurações</h2><div class="card">
+    <h3 class="subtit" style="margin-top:0">Loja e preço</h3>
+    <label>Nome do negócio</label><input id="cfNome" value="${esc(db.config.nomeLoja)}" placeholder="Controle de Joias">
+    <label>Preço de venda do grama (R$)</label><input id="cfPG" inputmode="decimal" value="${String(db.config.precoGrama).replace('.', ',')}">
+    <div class="mini" style="margin-top:4px">Usado para sugerir o preço das peças novas: peso × preço do grama.</div>
+    <div class="acoes"><button class="btn" onclick="salvarConfig()">Salvar</button>
+    <button class="btn sec" onclick="reprecificar()">Aplicar preço a todo o estoque</button></div></div>
+  <div class="card" id="cfTaxas" style="margin-top:10px"><h3 class="subtit" style="margin-top:0">💳 Taxas da máquina (%)</h3>
+    <div class="mini" style="margin-bottom:6px">Taxa total cobrada sobre o valor da venda. Na venda no cartão, o app calcula a taxa por aqui. Mude sempre que a maquininha mudar.</div>
+    <div class="grade3">${['debito', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(k => `<div><label>${k === 'debito' ? 'Débito' : k + 'x crédito'}</label><input class="cfTaxa" data-k="${k}" inputmode="decimal" value="${String((db.config.taxas || {})[k] ?? '').replace('.', ',')}"></div>`).join('')}</div>
+    <div class="acoes"><button class="btn" onclick="salvarTaxas()">Salvar taxas</button></div></div>
+  <div class="card" id="cfEmbalagens" style="margin-top:10px"><h3 class="subtit" style="margin-top:0">🎁 Embalagens (custo)</h3>
+    <div class="mini">Quanto custa cada embalagem. Ela é descontada do lucro da venda.</div><div id="cfEmbs">${(db.config.embalagens || []).map(linhaEmbalagem).join('')}</div>
+    <div class="acoes"><button class="btn sec" onclick="document.getElementById('cfEmbs').insertAdjacentHTML('beforeend', linhaEmbalagem({ nome: '', valor: '' }))">+ Embalagem</button>
+    <button class="btn" onclick="salvarEmbalagens()">Salvar embalagens</button></div></div>
+  <h2>Relatórios</h2><div class="lista">
     <div class="item" onclick="relatorio('fornecedor')"><div class="corpo"><div class="tit">🏭 Por fornecedor</div><div class="det">Quanto comprou, vendeu e lucrou com cada um</div></div></div>
     <div class="item" onclick="relatorio('categoria')"><div class="corpo"><div class="tit">💎 Por tipo de peça</div><div class="det">O que mais vende e o que dá mais lucro</div></div></div>
     <div class="item" onclick="relatorio('mes')"><div class="corpo"><div class="tit">📅 Por mês</div><div class="det">Vendas, lucro e recebimentos mês a mês</div></div></div>
     <div class="item" onclick="relatorio('compras')"><div class="corpo"><div class="tit">🛍️ Compras (lotes)</div><div class="det">Cada compra feita e quanto dela já foi vendido</div></div></div>
   </div>
-  <h2>Configurações</h2><div class="card">
-    <label style="margin-top:0">Nome do negócio</label><input id="cfNome" value="${esc(db.config.nomeLoja)}" placeholder="Controle de Joias">
-    <label>Preço de venda do grama (R$)</label><input id="cfPG" inputmode="decimal" value="${String(db.config.precoGrama).replace('.', ',')}">
-    <div class="mini" style="margin-top:4px">Usado para sugerir o preço das peças novas: peso × preço do grama.</div>
-    <div class="acoes"><button class="btn" onclick="salvarConfig()">Salvar</button>
-    <button class="btn sec" onclick="reprecificar()">Aplicar preço a todo o estoque</button></div></div>
-  <h2>Taxas da máquina</h2><div class="card">
-    <div class="mini" style="margin-bottom:6px">Taxa total (%) cobrada sobre o valor da venda. É usada para calcular a taxa de cada venda no cartão.</div>
-    <div class="grade3">${['debito', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(k => `<div><label>${k === 'debito' ? 'Débito' : k + 'x crédito'}</label><input class="cfTaxa" data-k="${k}" inputmode="decimal" value="${String((db.config.taxas || {})[k] ?? '').replace('.', ',')}"></div>`).join('')}</div>
-    <div class="acoes"><button class="btn" onclick="salvarTaxas()">Salvar taxas</button></div></div>
-  <h2>Embalagens</h2><div class="card"><div id="cfEmbs">${(db.config.embalagens || []).map(linhaEmbalagem).join('')}</div>
-    <div class="acoes"><button class="btn sec" onclick="document.getElementById('cfEmbs').insertAdjacentHTML('beforeend', linhaEmbalagem({ nome: '', valor: '' }))">+ Embalagem</button>
-    <button class="btn" onclick="salvarEmbalagens()">Salvar embalagens</button></div></div>
   <h2>Dados</h2><div class="lista">
     <div class="item" onclick="importarPlanilha()"><div class="corpo"><div class="tit">📥 Importar planilha de estoque (.xlsx)</div><div class="det">A planilha antiga, com uma aba por fornecedor</div></div></div>
     <div class="item" onclick="exportarExcel()"><div class="corpo"><div class="tit">📊 Exportar para Excel</div><div class="det">Estoque, vendas, parcelas e clientes</div></div></div>
@@ -917,9 +921,16 @@ function telaMais() {
   </div>
   <p class="mini" style="text-align:center;margin-top:20px">${db.pecas.length} peças · ${db.vendas.length} vendas · ${db.clientes.length} clientes<br>${Nuvem.ativa ? 'Os dados ficam na nuvem e sincronizam entre celular e computador (☁️ no topo).' : 'Os dados ficam guardados neste aparelho.'}</p>`;
 }
+function abrirConfig(id) {
+  if ($('#modais').innerHTML && !confirm('Sair desta tela para editar as configurações? O que foi preenchido aqui será perdido.')) return;
+  fecharModal(); irPara('mais');
+  setTimeout(() => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 80);
+}
 function linhaEmbalagem(e) {
-  return `<div class="grade2 cfEmb"><div><label>Nome</label><input class="cfEmbNome" value="${esc(e.nome)}" placeholder="Ex.: Caixa + sacola G"></div>
-    <div><label>Custo (R$)</label><input class="cfEmbValor" inputmode="decimal" value="${String(e.valor ?? '').replace('.', ',')}"></div></div>`;
+  return `<div class="cfEmb" style="display:grid;grid-template-columns:1fr 110px 44px;gap:8px;align-items:end">
+    <div><label>Nome</label><input class="cfEmbNome" value="${esc(e.nome)}" placeholder="Ex.: Caixa + sacola G"></div>
+    <div><label>Custo (R$)</label><input class="cfEmbValor" inputmode="decimal" value="${String(e.valor ?? '').replace('.', ',')}"></div>
+    <button class="btn perigo peq" style="padding:0;height:44px" title="Remover" onclick="this.closest('.cfEmb').remove()">✕</button></div>`;
 }
 function salvarTaxas() {
   const t = {}; document.querySelectorAll('.cfTaxa').forEach(i => { t[i.dataset.k] = numCampo(i.value); });
