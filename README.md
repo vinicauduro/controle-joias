@@ -24,11 +24,31 @@ Abra em **https://vinicauduro.github.io/controle-joias/** e, no celular, use
 
 ## Onde ficam os dados
 
-Os dados ficam guardados **só no aparelho** em que o app é usado (armazenamento do navegador).
-Nada vai para o GitHub nem para a internet. Por isso:
+Com a nuvem ligada (Supabase), os dados ficam na nuvem e em cada aparelho: entre com a
+**mesma conta** no celular e no computador e tudo aparece igual. Sem internet, o app
+continua funcionando e envia as alterações quando a conexão volta (o ☁️ no topo mostra
+a situação: ✓ sincronizado, ⏳ alterações para enviar, ✕ sem internet).
 
-- faça o **backup** toda semana (Mais › Fazer backup) e guarde no Drive ou no WhatsApp;
-- para passar para outro aparelho, use **Mais › Restaurar backup** nele.
+Sem a nuvem (chaves vazias em `config.js`), os dados ficam só no aparelho; nesse caso,
+faça o **backup** toda semana (Mais › Fazer backup).
+
+## Ligar a nuvem (uma vez só)
+
+1. **Projeto.** Em https://supabase.com crie um projeto (região *South America (São Paulo)*)
+   ou use um que já exista.
+2. **Tabela.** Em **SQL Editor › New query**, cole o conteúdo de [`schema.sql`](schema.sql)
+   e clique em **Run**. Pode rodar de novo sem perder nada.
+3. **Login.** Em **Authentication › Sign In / Providers › Email**, deixe *Email* ativado.
+   Para não precisar confirmar o e-mail, desative *Confirm email*. Em
+   **Authentication › URL Configuration**, coloque `https://vinicauduro.github.io/controle-joias/`
+   em *Site URL* e em *Redirect URLs* (usado no "Esqueci a senha").
+4. **Chaves.** Em **Project Settings › API Keys**, copie a *Project URL* e a chave
+   *anon public* / *publishable* e preencha [`config.js`](config.js).
+5. Abra o app, toque em **Criar conta** e depois entre com a mesma conta nos outros aparelhos.
+   O que já estava no aparelho sobe para a nuvem no primeiro login.
+
+A chave *anon/publishable* pode ficar no código: ela só dá acesso ao que as regras do banco
+permitem, e cada conta só enxerga os próprios dados.
 
 ## Importação da planilha
 

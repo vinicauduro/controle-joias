@@ -113,12 +113,16 @@
   .toast { position: fixed; left: 50%; bottom: calc(90px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: #2b2416; color: #fff;
     padding: 10px 16px; border-radius: 10px; z-index: 60; font-size: .9rem; max-width: 90vw; text-align: center; }
   .oculto { display: none !important; }
+  .login { position: fixed; inset: 0; z-index: 70; background: linear-gradient(160deg, #8a6d1d, #d8b74e); display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
+  .login-caixa { background: var(--fundo); border-radius: 18px; padding: 22px 18px; width: 100%; max-width: 380px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+  .login-caixa label, .login-caixa input { text-align: left; }
   .mini { font-size: .8rem; color: var(--suave); }
 </style>
 </head>
 <body>
 <header>
   <h1 id="titulo">💍 Controle de Joias</h1>
+  <button id="btnNuvem" class="oculto" onclick="Nuvem.menu()" title="Nuvem">☁️</button>
   <button id="btnBusca" onclick="irPara('estoque', true)">🔍</button>
   <div class="cotacoes">
     <button id="cotacao" onclick="atualizarCotacao(true)" title="Toque para atualizar"><span class="rot">🪙 Mercado (24k)</span><b>…</b><span class="sub">buscando…</span></button>
@@ -136,6 +140,9 @@
 </nav>
 <div id="modais"></div>
 
+<script src="config.js"></script>
+<script src="supabase.js"></script>
+<script src="nuvem.js"></script>
 <script>
 'use strict';
 /* =========================================================================
@@ -155,6 +162,7 @@ try { const raw = localStorage.getItem(CHAVE); if (raw) db = Object.assign(dbVaz
 function salvar() {
   try { localStorage.setItem(CHAVE, JSON.stringify(db)); }
   catch (e) { toast('Não foi possível salvar: memória do navegador cheia. Faça um backup.'); }
+  Nuvem.mudou();
 }
 
 /* ---------- utilitários ---------- */
@@ -334,7 +342,7 @@ function mesesComVendas() {
   return [...s].sort().reverse();
 }
 function avisoBackup() {
-  if (!db.pecas.length) return '';
+  if (!db.pecas.length || Nuvem.ativa) return '';
   const ult = db.config.ultimoBackup;
   if (ult && (new Date() - new Date(ult + 'T12:00:00')) < 7 * 864e5) return '';
   return `<div class="aviso">💾 ${ult ? 'Último backup em ' + D(ult) + '.' : 'Você ainda não fez nenhum backup.'} Os dados ficam só neste aparelho; salve uma cópia toda semana.
@@ -795,7 +803,7 @@ function telaMais() {
     <div class="item" onclick="restaurarBackup()"><div class="corpo"><div class="tit">♻️ Restaurar backup</div><div class="det">Use para passar os dados para outro celular ou computador</div></div></div>
     <div class="item" onclick="apagarTudo()"><div class="corpo"><div class="tit neg">🗑️ Apagar todos os dados</div></div></div>
   </div>
-  <p class="mini" style="text-align:center;margin-top:20px">${db.pecas.length} peças · ${db.vendas.length} vendas · ${db.clientes.length} clientes<br>Os dados ficam guardados neste aparelho.</p>`;
+  <p class="mini" style="text-align:center;margin-top:20px">${db.pecas.length} peças · ${db.vendas.length} vendas · ${db.clientes.length} clientes<br>${Nuvem.ativa ? 'Os dados ficam na nuvem e sincronizam entre celular e computador (☁️ no topo).' : 'Os dados ficam guardados neste aparelho.'}</p>`;
 }
 function salvarConfig() {
   db.config.nomeLoja = $('#cfNome').value.trim();
@@ -992,7 +1000,7 @@ async function restaurarBackup() {
   } catch (e) { toast('Backup inválido: ' + e.message); }
 }
 function apagarTudo() {
-  if (!confirm('Apagar TODOS os dados deste aparelho? Faça um backup antes.')) return;
+  if (!confirm(Nuvem.ativa ? 'Apagar TODOS os dados, inclusive da nuvem (some do celular e do computador)? Faça um backup antes.' : 'Apagar TODOS os dados deste aparelho? Faça um backup antes.')) return;
   if (prompt('Para confirmar, digite APAGAR') !== 'APAGAR') return;
   db = dbVazio(); salvar(); irPara('inicio'); toast('Dados apagados');
 }
@@ -1069,6 +1077,7 @@ atualizarCotacao();
 setInterval(() => atualizarCotacao(), 15 * 6e4);
 
 irPara('inicio');
+Nuvem.iniciar();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>
