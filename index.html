@@ -185,6 +185,8 @@ function somaMeses(iso, n) { const d = new Date(iso + 'T12:00:00'); const dia = 
 function tituloCaso(s) { return String(s || '').trim().toLowerCase().replace(/(^|\s|\/|-)(\p{L})/gu, (m, a, b) => a + b.toUpperCase()); }
 function semAcento(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
 
+// foca um campo assim que o modal aparece (se ele ainda estiver aberto)
+function focar(sel, selecionar) { setTimeout(() => { const i = $(sel); if (i) { i.focus(); if (selecionar) i.select(); } }, 50); }
 function toast(msg) {
   const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t);
   setTimeout(() => t.remove(), 2800);
@@ -458,7 +460,7 @@ function reservar(id) {
   abrirModal('Reservar peça', `<p class="mini">${esc(p.descricao)} — a peça continua no estoque, mas fica marcada para a cliente.</p>
     <label>Para quem?</label><input id="resNome" list="dlClientes" placeholder="Nome da cliente">${datalistClientes()}
     <div class="acoes"><button class="btn bloco" onclick="confirmarReserva('${id}')">Reservar</button></div>`);
-  setTimeout(() => $('#resNome').focus(), 50);
+  focar('#resNome');
 }
 function confirmarReserva(id) {
   const n = $('#resNome').value.trim(); if (!n) return toast('Informe o nome');
@@ -523,7 +525,7 @@ function formPeca(id, duplicar) {
   $('#pPreco').oninput = () => { precoManual = true; atualizar(); };
   $('#pDesc').oninput = () => { if (!editando || !orig.categoria) $('#pCat').value = categoriaDe($('#pDesc').value); };
   atualizar();
-  if (!editando) setTimeout(() => $('#pDesc').focus(), 50);
+  if (!editando) focar('#pDesc');
   $('#pSalvar').onclick = () => {
     const desc = $('#pDesc').value.trim(); if (!desc) return toast('Informe a descrição');
     const x = ler(); if (!x.gramas) return toast('Informe o peso em gramas');
@@ -772,7 +774,7 @@ function formCliente(id) {
     <div class="grade2"><div><label>Telefone / WhatsApp</label><input id="cTel" inputmode="tel" value="${esc(c.tel)}"></div><div><label>Aniversário</label><input id="cAniv" placeholder="dd/mm" value="${esc(c.aniversario || '')}"></div></div>
     <label>Observação (medida do anel, preferências…)</label><textarea id="cObs" rows="2">${esc(c.obs)}</textarea>
     <div class="acoes"><button class="btn bloco" id="cSalvar">Salvar</button></div>`);
-  setTimeout(() => $('#cNome').focus(), 50);
+  focar('#cNome');
   $('#cSalvar').onclick = () => {
     const nome = $('#cNome').value.trim(); if (!nome) return toast('Informe o nome');
     const dados = { nome: tituloCaso(nome), tel: $('#cTel').value.trim(), aniversario: $('#cAniv').value.trim(), obs: $('#cObs').value.trim() };
@@ -1049,7 +1051,7 @@ function editarPrecoVenda() {
     <div class="mini" style="margin-top:6px">Usado para sugerir o preço das peças: peso × preço do grama.</div>
     <label><input type="checkbox" id="pvTodas" style="width:auto;margin-right:6px">Atualizar também o preço das ${db.pecas.filter(emEstoque).length} peças em estoque</label>
     <div class="acoes"><button class="btn bloco" id="pvSalvar">Salvar</button></div>`);
-  setTimeout(() => { const i = $('#pvNovo'); i.focus(); i.select(); }, 50);
+  focar('#pvNovo', true);
   $('#pvSalvar').onclick = () => {
     const v = numCampo($('#pvNovo').value); if (!(v > 0)) return toast('Informe um valor válido');
     db.config.precoGrama = arred(v);

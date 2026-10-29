@@ -8,7 +8,9 @@
 const Nuvem = (() => {
   const cfg = window.JOIAS_CONFIG || {};
   const ativa = !!(cfg.supabaseUrl && cfg.supabaseAnonKey && window.supabase);
-  const sb = ativa ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey) : null;
+  // O app fica no mesmo endereço (vinicauduro.github.io) que a Agenda Corretor, que usa o mesmo
+  // projeto Supabase. Com uma chave própria, o login das joias não se mistura com o da agenda.
+  const sb = ativa ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, { auth: { storageKey: 'joias-auth' } }) : null;
   const URL_APP = location.origin + location.pathname;
   const TABELA = 'joias_registros';
   const COLECOES = ['pecas', 'vendas', 'clientes', 'fornecedores'];

@@ -34,17 +34,15 @@ faça o **backup** toda semana (Mais › Fazer backup).
 
 ## Ligar a nuvem (uma vez só)
 
-1. **Projeto.** Em https://supabase.com crie um projeto (região *South America (São Paulo)*)
-   ou use um que já exista.
+1. **Projeto.** O app usa o mesmo projeto Supabase da Agenda Corretor (CRM), já configurado em
+   `config.js`. A tabela é separada e as contas das joias não têm acesso ao CRM.
 2. **Tabela.** Em **SQL Editor › New query**, cole o conteúdo de [`schema.sql`](schema.sql)
    e clique em **Run**. Pode rodar de novo sem perder nada.
 3. **Login.** Em **Authentication › Sign In / Providers › Email**, deixe *Email* ativado.
-   Para não precisar confirmar o e-mail, desative *Confirm email*. Em
-   **Authentication › URL Configuration**, coloque `https://vinicauduro.github.io/controle-joias/`
-   em *Site URL* e em *Redirect URLs* (usado no "Esqueci a senha").
-4. **Chaves.** Em **Project Settings › API Keys**, copie a *Project URL* e a chave
-   *anon public* / *publishable* e preencha [`config.js`](config.js).
-5. Abra o app, toque em **Criar conta** e depois entre com a mesma conta nos outros aparelhos.
+   Em **Authentication › URL Configuration › Redirect URLs**, acrescente
+   `https://vinicauduro.github.io/controle-joias/` (usado no "Esqueci a senha" e na confirmação
+   de e-mail). Não mude o *Site URL*, que é o da agenda.
+4. Abra o app, toque em **Criar conta** e depois entre com a mesma conta nos outros aparelhos.
    O que já estava no aparelho sobe para a nuvem no primeiro login.
 
 A chave *anon/publishable* pode ficar no código: ela só dá acesso ao que as regras do banco
