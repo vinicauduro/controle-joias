@@ -20,6 +20,14 @@
     padding-bottom: calc(72px + env(safe-area-inset-bottom)); font-size: 15px; }
   header { position: sticky; top: 0; z-index: 10; background: linear-gradient(135deg, #8a6d1d, #c9a43c); color: #fff;
     padding: calc(12px + env(safe-area-inset-top)) 16px 12px; display: flex; align-items: center; gap: 10px; box-shadow: var(--sombra); }
+  header { flex-wrap: wrap; }
+  .cotacoes { flex: 1 1 100%; display: flex; gap: 8px; }
+  .cotacoes button { flex: 1; min-width: 0; background: rgba(0,0,0,.14); border: 0; color: #fff; border-radius: 10px; padding: 6px 10px;
+    font: inherit; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 1px; }
+  .cotacoes .rot { font-size: .68rem; text-transform: uppercase; letter-spacing: .4px; opacity: .9; }
+  .cotacoes b { font-size: 1rem; white-space: nowrap; }
+  .cotacoes .sub { font-size: .7rem; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cotacoes #precoVenda { background: rgba(255,255,255,.22); }
   header h1 { font-size: 1.1rem; margin: 0; flex: 1; letter-spacing: .2px; }
   header button { background: rgba(255,255,255,.18); color: #fff; border: 0; border-radius: 10px; padding: 8px 12px; font-size: .9rem; font-weight: 600; }
   main { max-width: 900px; margin: 0 auto; padding: 14px 16px; }
@@ -112,6 +120,10 @@
 <header>
   <h1 id="titulo">💍 Controle de Joias</h1>
   <button id="btnBusca" onclick="irPara('estoque', true)">🔍</button>
+  <div class="cotacoes">
+    <button id="cotacao" onclick="atualizarCotacao(true)" title="Toque para atualizar"><span class="rot">🪙 Mercado (24k)</span><b>…</b><span class="sub">buscando…</span></button>
+    <button id="precoVenda" onclick="editarPrecoVenda()" title="Toque para alterar"><span class="rot">🏷️ Venda</span><b></b><span class="sub">✏️ toque para alterar</span></button>
+  </div>
 </header>
 <main id="tela"></main>
 <button class="btn fab oculto" id="fab">+</button>
@@ -242,6 +254,7 @@ function render() {
   fab.classList.toggle('oculto', !['estoque', 'vendas', 'clientes'].includes(aba));
   fab.onclick = aba === 'estoque' ? () => formPeca() : aba === 'vendas' ? () => formVenda() : () => formCliente();
   $('#titulo').textContent = '💍 ' + (db.config.nomeLoja || 'Controle de Joias');
+  mostrarPrecoVenda();
   const telas = { inicio: telaInicio, estoque: telaEstoque, vendas: telaVendas, clientes: telaClientes, mais: telaMais };
   $('#tela').innerHTML = telas[aba]();
   if (aba === 'estoque') ligarFiltrosEstoque();
@@ -991,6 +1004,69 @@ function abrirModal(titulo, html) {
 }
 function fecharModal() { $('#modais').innerHTML = ''; }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal(); });
+
+/* ---------- cotação do ouro (grama de ouro puro 24k em reais) ---------- */
+const CHAVE_COT = 'joias_cotacao';
+const ONCA_G = 31.1034768; // uma onça troy em gramas
+async function buscarJSON(url) { const r = await fetch(url, { cache: 'no-store' }); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }
+// As cotações costumam vir por onça; se o número for alto demais para um grama, converte.
+const porGrama = v => v > 3000 ? v / ONCA_G : v;
+async function cotacaoAwesome() {
+  const j = await buscarJSON('https://economia.awesomeapi.com.br/json/last/XAU-BRL');
+  const x = j.XAUBRL; const bid = parseFloat(x.bid);
+  if (!(bid > 0)) throw new Error('sem valor');
+  return { grama: porGrama(bid), variacao: parseFloat(x.pctChange), fonte: 'AwesomeAPI' };
+}
+async function cotacaoGoldApi() {
+  const [ouro, cambio] = await Promise.all([buscarJSON('https://api.gold-api.com/price/XAU'), buscarJSON('https://open.er-api.com/v6/latest/USD')]);
+  const usd = ouro.price, brl = cambio.rates && cambio.rates.BRL;
+  if (!(usd > 0 && brl > 0)) throw new Error('sem valor');
+  return { grama: usd * brl / ONCA_G, variacao: NaN, fonte: 'gold-api.com' };
+}
+function mostrarCotacao(c, erro) {
+  const el = $('#cotacao'); if (!el) return;
+  if (!c) { el.innerHTML = '<span class="rot">🪙 Mercado (24k)</span><b>indisponível</b><span class="sub">toque para tentar de novo</span>'; return; }
+  const quando = new Date(c.em);
+  const hora = quando.toLocaleDateString('pt-BR') === new Date().toLocaleDateString('pt-BR')
+    ? 'hoje ' + quando.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : quando.toLocaleDateString('pt-BR');
+  const v = isFinite(c.variacao) ? `${c.variacao >= 0 ? '▲' : '▼'} ${Math.abs(c.variacao).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}% · ` : '';
+  el.innerHTML = `<span class="rot">🪙 Mercado (24k)</span><b>${R(c.grama)}/g</b><span class="sub">${erro ? '⚠️ ' : ''}${v}${hora}</span>`;
+}
+function mostrarPrecoVenda() { const el = $('#precoVenda b'); if (el) el.textContent = R(db.config.precoGrama) + '/g'; }
+function editarPrecoVenda() {
+  const merc = cotacaoAtual ? `<div class="mini" style="margin-top:6px">Cotação de mercado agora: ${R(cotacaoAtual.grama)}/g (24k) · ${R(cotacaoAtual.grama * 0.75)}/g (18k).
+    Seu preço está ${P(db.config.precoGrama / cotacaoAtual.grama - 1)} acima do 24k.</div>` : '';
+  abrirModal('Preço de venda do grama', `<label style="margin-top:0">Quanto você cobra por grama (R$)</label>
+    <input id="pvNovo" inputmode="decimal" value="${String(db.config.precoGrama).replace('.', ',')}">${merc}
+    <div class="mini" style="margin-top:6px">Usado para sugerir o preço das peças: peso × preço do grama.</div>
+    <label><input type="checkbox" id="pvTodas" style="width:auto;margin-right:6px">Atualizar também o preço das ${db.pecas.filter(emEstoque).length} peças em estoque</label>
+    <div class="acoes"><button class="btn bloco" id="pvSalvar">Salvar</button></div>`);
+  setTimeout(() => { const i = $('#pvNovo'); i.focus(); i.select(); }, 50);
+  $('#pvSalvar').onclick = () => {
+    const v = numCampo($('#pvNovo').value); if (!(v > 0)) return toast('Informe um valor válido');
+    db.config.precoGrama = arred(v);
+    if ($('#pvTodas').checked) for (const p of db.pecas.filter(emEstoque)) p.preco = precoSugerido(p.gramas);
+    salvar(); fecharModal(); render(); toast('Preço do grama: ' + R(v));
+  };
+}
+let cotacaoAtual = null;
+try { cotacaoAtual = JSON.parse(localStorage.getItem(CHAVE_COT)); } catch (e) {}
+async function atualizarCotacao(manual) {
+  if (cotacaoAtual) mostrarCotacao(cotacaoAtual);
+  if (!manual && cotacaoAtual && Date.now() - cotacaoAtual.em < 15 * 6e4) return;
+  if (manual) $('#cotacao .sub').textContent = 'atualizando…';
+  for (const fonte of [cotacaoAwesome, cotacaoGoldApi]) {
+    try {
+      const c = await fonte(); c.em = Date.now(); cotacaoAtual = c;
+      try { localStorage.setItem(CHAVE_COT, JSON.stringify(c)); } catch (e) {}
+      mostrarCotacao(c); return;
+    } catch (e) { console.warn('Cotação:', e.message); }
+  }
+  mostrarCotacao(cotacaoAtual, true);
+  if (manual) toast(cotacaoAtual ? 'Sem conexão: mostrando a última cotação' : 'Não foi possível buscar a cotação');
+}
+atualizarCotacao();
+setInterval(() => atualizarCotacao(), 15 * 6e4);
 
 irPara('inicio');
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

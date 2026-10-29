@@ -7,6 +7,8 @@ Abra em **https://vinicauduro.github.io/controle-joias/** e, no celular, use
 
 ## O que faz
 
+- **No topo**: a cotação de mercado do grama de ouro 24k (atualiza sozinha a cada 15 minutos;
+  toque para atualizar) e, ao lado, o preço do grama para venda, que se altera com um toque.
 - **Estoque**: cadastro das peças com peso, valor do grama pago, índice, frete e mão de obra
   (o custo é calculado sozinho) e preço de venda sugerido (peso × preço do grama).
   Reservar peça para uma cliente, dar baixa (perda, devolução, conserto) e buscar por
