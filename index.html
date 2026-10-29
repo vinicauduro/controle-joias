@@ -19,16 +19,17 @@
   body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--fundo); color: var(--texto);
     padding-bottom: calc(72px + env(safe-area-inset-bottom)); font-size: 15px; }
   header { position: sticky; top: 0; z-index: 10; background: linear-gradient(135deg, #8a6d1d, #c9a43c); color: #fff;
-    padding: calc(12px + env(safe-area-inset-top)) 16px 12px; display: flex; align-items: center; gap: 10px; box-shadow: var(--sombra); }
+    padding: calc(8px + env(safe-area-inset-top)) 12px 8px; display: flex; align-items: center; gap: 10px; box-shadow: var(--sombra); }
   header { flex-wrap: wrap; }
   .cotacoes { flex: 1 1 100%; display: flex; gap: 8px; }
-  .cotacoes button { flex: 1; min-width: 0; background: rgba(0,0,0,.14); border: 0; color: #fff; border-radius: 10px; padding: 6px 10px;
+  .cotacoes button { flex: 1; min-width: 0; background: rgba(0,0,0,.14); border: 0; color: #fff; border-radius: 10px; padding: 5px 10px;
     font: inherit; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 1px; }
   .cotacoes .rot { font-size: .68rem; text-transform: uppercase; letter-spacing: .4px; opacity: .9; }
   .cotacoes b { font-size: 1rem; white-space: nowrap; }
   .cotacoes .sub { font-size: .7rem; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cotacoes #precoVenda { background: rgba(255,255,255,.22); }
-  header h1 { font-size: 1.1rem; margin: 0; flex: 1; letter-spacing: .2px; }
+  header h1 { font-size: 1.05rem; margin: 0; flex: 1; letter-spacing: .2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  header { gap: 8px; } header > button { min-height: 38px; }
   header button { background: rgba(255,255,255,.18); color: #fff; border: 0; border-radius: 10px; padding: 8px 12px; font-size: .9rem; font-weight: 600; }
   main { max-width: 900px; margin: 0 auto; padding: 14px 16px; }
   nav.abas { position: fixed; bottom: 0; left: 0; right: 0; z-index: 10; background: #fff; border-top: 1px solid var(--borda);
@@ -61,8 +62,9 @@
   .chip.vencida { background: #fde2e2; color: var(--vermelho); }
   .chip.pago { background: #e0f2e9; color: var(--verde); }
   .barra-filtros { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
-  .barra-filtros input[type=search] { flex: 1 1 100%; }
-  input, select, textarea { font: inherit; padding: 10px 12px; border: 1px solid var(--borda); border-radius: 10px; background: #fff; color: var(--texto); width: 100%; }
+  .barra-filtros input[type=search] { flex: 1 1 auto; min-width: 0; }
+  /* 16px nos campos: abaixo disso o iPhone dá zoom ao tocar */
+  input, select, textarea { font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid var(--borda); border-radius: 10px; background: #fff; color: var(--texto); width: 100%; }
   .barra-filtros select { flex: 1 1 140px; width: auto; }
   input:focus, select:focus, textarea:focus { outline: 2px solid #e3c96f; border-color: var(--ouro); }
   label { display: block; font-size: .8rem; color: var(--suave); margin: 10px 0 4px; font-weight: 600; }
@@ -101,7 +103,7 @@
   /* modal */
   .fundo-modal { position: fixed; inset: 0; background: rgba(20,15,5,.45); z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
   @media (min-width: 640px) { .fundo-modal { align-items: center; } }
-  .modal { background: var(--fundo); width: 100%; max-width: 560px; max-height: 92vh; overflow-y: auto; border-radius: 18px 18px 0 0; padding: 16px 16px calc(18px + env(safe-area-inset-bottom)); }
+  .modal { background: var(--fundo); width: 100%; max-width: 560px; max-height: 92vh; max-height: 92dvh; overflow-y: auto; overscroll-behavior: contain; border-radius: 18px 18px 0 0; padding: 16px 16px calc(18px + env(safe-area-inset-bottom)); }
   @media (min-width: 640px) { .modal { border-radius: 18px; } }
   .modal-topo { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
   .modal-topo h3 { flex: 1; margin: 0; font-size: 1.05rem; }
@@ -113,6 +115,19 @@
   .toast { position: fixed; left: 50%; bottom: calc(90px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: #2b2416; color: #fff;
     padding: 10px 16px; border-radius: 10px; z-index: 60; font-size: .9rem; max-width: 90vw; text-align: center; }
   .oculto { display: none !important; }
+  /* toque no celular: sem atraso de duplo toque, sem flash azul, alvos de pelo menos 44px */
+  html { -webkit-text-size-adjust: 100%; }
+  body { touch-action: manipulation; -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
+  button, .item, nav.abas { -webkit-user-select: none; user-select: none; }
+  .btn { min-height: 46px; } .btn.peq { min-height: 38px; }
+  .item { min-height: 56px; }
+  .modal .acoes.fixo { position: sticky; bottom: calc(-18px - env(safe-area-inset-bottom)); background: var(--fundo); margin: 14px -16px calc(-18px - env(safe-area-inset-bottom));
+    padding: 10px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--borda); z-index: 2; }
+  .atalhos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 6px; }
+  .atalhos .btn { padding: 16px 10px; font-size: 1rem; border-radius: 14px; }
+  .btn-filtros { flex: none; }
+  .instalar { display: flex; gap: 10px; align-items: center; }
+  .instalar .ic { font-size: 1.8rem; }
   .login { position: fixed; inset: 0; z-index: 70; background: linear-gradient(160deg, #8a6d1d, #d8b74e); display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
   .login-caixa { background: var(--fundo); border-radius: 18px; padding: 22px 18px; width: 100%; max-width: 380px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
   .login-caixa label, .login-caixa input { text-align: left; }
@@ -267,7 +282,12 @@ let aba = 'inicio';
 const estado = { busca: '', fFornecedor: '', fCategoria: '', fStatus: 'disponivel', ordem: 'recentes', limite: 150,
   vendasVista: 'vendas', vendasMes: '', buscaVenda: '', buscaCliente: '', inicioMes: mesDe(hoje()) };
 
-function irPara(nova, focarBusca) {
+function irPara(nova, focarBusca, peloVoltar) {
+  if (!peloVoltar && !modalNoHistorico) {
+    if (aba === 'inicio' && nova !== 'inicio') history.pushState({ aba: nova }, '');
+    else if (nova !== 'inicio') history.replaceState({ aba: nova }, '');
+    else if (aba !== 'inicio' && history.state && history.state.aba) { history.back(); return; }
+  }
   aba = nova;
   document.querySelectorAll('nav.abas button').forEach(b => b.classList.toggle('ativo', b.dataset.aba === aba));
   render();
@@ -327,7 +347,9 @@ function telaInicio() {
   const opMeses = mesesComVendas();
   if (!opMeses.includes(ym)) opMeses.unshift(ym);
 
-  let html = avisoBackup();
+  let html = cartaoInstalar() + avisoBackup();
+  html += `<div class="atalhos"><button class="btn" onclick="formVenda()">💰 Nova venda</button><button class="btn sec" onclick="formPeca()">➕ Nova peça</button></div>`;
+  if (abertas.length) html += `<button class="btn sec bloco" style="margin-top:4px" onclick="estado.vendasVista='receber';irPara('vendas')">📅 A receber: ${R(aReceber)}${vencidas.length ? ` · <span class="neg">${vencidas.length} vencida(s)</span>` : ''}</button>`;
   html += `<h2>Estoque agora</h2><div class="cards">
     <div class="card destaque"><div class="rot">Peças</div><div class="val">${est.length}</div><div class="sub">${G(gEst)} de ouro</div></div>
     <div class="card"><div class="rot">Custo do estoque</div><div class="val">${R(custoEst)}</div><div class="sub">quanto foi pago</div></div>
@@ -356,6 +378,19 @@ function telaInicio() {
   }
   return html;
 }
+let pedidoInstalacao = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); pedidoInstalacao = e; if (aba === 'inicio') render(); });
+const instalado = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+function cartaoInstalar() {
+  let dispensou = false; try { dispensou = localStorage.getItem('joias_instalar_dispensou') === '1'; } catch (e) {}
+  if (instalado() || dispensou) return '';
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (!pedidoInstalacao && !ios) return '';
+  return `<div class="card destaque instalar" style="margin-bottom:12px"><div class="ic">📲</div><div style="flex:1">
+    <b>Instale o app no celular</b><div class="mini">${ios ? 'No Safari, toque em <b>Compartilhar</b> (□↑) e depois em <b>Adicionar à Tela de Início</b>.' : 'Ele fica com ícone na tela inicial e abre em tela cheia, como um aplicativo.'}</div>
+    <div class="acoes" style="margin-top:8px">${ios ? '' : '<button class="btn peq" onclick="instalarApp()">Instalar</button>'}<button class="btn sec peq" onclick="try{localStorage.setItem(\'joias_instalar_dispensou\',\'1\')}catch(e){};render()">Agora não</button></div></div></div>`;
+}
+async function instalarApp() { if (!pedidoInstalacao) return; pedidoInstalacao.prompt(); await pedidoInstalacao.userChoice.catch(() => {}); pedidoInstalacao = null; render(); }
 function mesesComVendas() {
   const s = new Set(db.vendas.filter(v => v.data).map(v => mesDe(v.data)));
   s.add(mesDe(hoje()));
@@ -392,8 +427,11 @@ function filtrarPecas() {
 function telaEstoque() {
   const forn = nomesFornecedores();
   const cats = [...new Set(db.pecas.map(p => p.categoria))].sort();
-  return `<div class="barra-filtros">
-    <input type="search" id="busca" placeholder="Buscar peça, referência, fornecedor…" value="${esc(estado.busca)}">
+  const nFiltros = (estado.fStatus !== 'disponivel') + !!estado.fFornecedor + !!estado.fCategoria + (estado.ordem !== 'recentes');
+  return `<div class="barra-filtros" style="flex-wrap:nowrap">
+    <input type="search" id="busca" enterkeyhint="search" placeholder="Buscar peça, referência…" value="${esc(estado.busca)}">
+    <button class="btn sec btn-filtros" onclick="estado.verFiltros=!estado.verFiltros;render()">⚙️ Filtros${nFiltros ? ' (' + nFiltros + ')' : ''}</button></div>
+  <div class="barra-filtros ${estado.verFiltros ? '' : 'oculto'}">
     <select id="fStatus">
       <option value="disponivel">Em estoque</option><option value="estoque">Disponíveis (sem reserva)</option><option value="reservado">Reservadas</option>
       <option value="vendido">Vendidas</option><option value="baixa">Baixadas (perda, devolução…)</option><option value="todas">Todas</option>
@@ -527,7 +565,7 @@ function formPeca(id, duplicar) {
     </div>
     <div class="mini" id="pDica" style="margin-top:6px"></div>
     <label>Observação</label><input id="pObs" value="${esc(p.obs)}">
-    <div class="acoes"><button class="btn bloco" id="pSalvar">Salvar</button></div>`);
+    <div class="acoes fixo"><button class="btn bloco" id="pSalvar">Salvar</button></div>`);
   let custoManual = editando && Math.abs((orig.custo || 0) - calcCusto(orig)) > 0.05;
   let precoManual = !!(editando && orig.preco);
   const ler = () => ({ gramas: numCampo($('#pG').value), valorGrama: numCampo($('#pVG').value), indice: numCampo($('#pInd').value) || 1, frete: numCampo($('#pFrete').value), maoObra: numCampo($('#pMO').value) });
@@ -645,7 +683,7 @@ function formVenda(preSel) {
     <div id="vEmbOutraBox" class="oculto"><label>Valor da embalagem (R$)</label><input id="vEmbV" inputmode="decimal" value="0"></div>
     <div class="card" style="margin-top:10px" id="vResumo"></div>
     <label>Observação</label><input id="vObs">
-    <div class="acoes"><button class="btn bloco" id="vSalvar">Registrar venda</button></div>`);
+    <div class="acoes fixo"><button class="btn bloco" id="vSalvar">Registrar venda</button></div>`);
   let taxaManual = false;
   const totalSel = () => { let t = 0; for (const v of sel.values()) t += v; return t; };
   const valorEmb = () => { const e = $('#vEmb').value; if (e === '') return 0; if (e === 'outra') return numCampo($('#vEmbV').value); return Number((db.config.embalagens[+e] || {}).valor) || 0; };
@@ -737,6 +775,7 @@ function verVenda(id) {
       ${x.pago ? `<span class="chip pago">paga</span> <button class="btn sec peq" onclick="desfazerParcela('${v.id}',${i})">desfazer</button>` : `${x.venc < hoje() ? '<span class="chip vencida">vencida</span>' : ''}<button class="btn peq" onclick="receberParcela('${v.id}',${i})">Recebi</button>`}</div>`).join('') + '</div>';
   }
   html += '<div class="acoes">';
+  html += `<button class="btn sec" onclick="enviarRecibo('${v.id}')">🧾 Recibo pelo WhatsApp</button>`;
   if (c && c.tel && emAbertoVenda(v) > 0) html += `<button class="btn sec" onclick="cobrar('${v.id}')">📲 Lembrar pelo WhatsApp</button>`;
   html += `<button class="btn sec" onclick="editarVenda('${v.id}')">✏️ Editar</button><button class="btn perigo" onclick="cancelarVenda('${v.id}')">Cancelar venda</button></div>`;
   abrirModal('Venda', html);
@@ -760,6 +799,15 @@ function cobrar(vid) {
     : `Oi ${nome}, tudo bem? Passando para lembrar da próxima parcela de ${R(ab[0].valor)}, com vencimento em ${D(ab[0].venc)}. Obrigada! 😊`;
   window.open('https://wa.me/' + foneWa(c.tel) + '?text=' + encodeURIComponent(txt), '_blank');
 }
+function enviarRecibo(vid) {
+  const v = venda(vid), c = cliente(v.clienteId);
+  const linhas = v.itens.map(i => { const p = peca(i.pecaId) || {}; return `• ${tituloCaso(p.descricao || 'Peça')} (${G(p.gramas)}) — ${R(i.valor)}`; });
+  const abertas = (v.parcelas || []).filter(x => !x.pago);
+  let txt = `${db.config.nomeLoja || 'Joias'} 💍\nRecibo de compra${v.data ? ' — ' + D(v.data) : ''}\n${c ? 'Cliente: ' + c.nome + '\n' : ''}\n${linhas.join('\n')}\n\nTotal: ${R(totalVenda(v))}\nPagamento: ${v.forma || '—'}`;
+  if (abertas.length) txt += `\n\nParcelas:\n` + abertas.map(x => `${D(x.venc)} — ${R(x.valor)}`).join('\n');
+  txt += '\n\nObrigada pela preferência! ✨';
+  window.open((c && c.tel ? 'https://wa.me/' + foneWa(c.tel) : 'https://wa.me/') + '?text=' + encodeURIComponent(txt), '_blank');
+}
 function foneWa(t) { let d = String(t || '').replace(/\D/g, ''); if (d.length <= 11) d = '55' + d; return d; }
 function editarVenda(id) {
   const v = venda(id); const c = cliente(v.clienteId);
@@ -770,7 +818,7 @@ function editarVenda(id) {
       <div><label>Embalagem (R$)</label><input id="evEmb" inputmode="decimal" value="${String(v.embalagem || 0).replace('.', ',')}"></div></div>
     <label>Observação</label><input id="evObs" value="${esc(v.obs)}">
     <div class="mini" style="margin-top:8px">Se mudar os valores de uma venda à vista, o pagamento é ajustado junto. Em venda parcelada, ajuste as parcelas cancelando e registrando de novo.</div>
-    <div class="acoes"><button class="btn bloco" id="evSalvar">Salvar</button></div>`);
+    <div class="acoes fixo"><button class="btn bloco" id="evSalvar">Salvar</button></div>`);
   $('#evSalvar').onclick = () => {
     v.clienteId = acharOuCriarCliente($('#evCli').value) || null; v.data = $('#evData').value || null; v.obs = $('#evObs').value.trim();
     v.itens.forEach((i, k) => i.valor = arred(numCampo($('#evIt' + k).value)));
@@ -828,7 +876,7 @@ function formCliente(id) {
   abrirModal(id ? 'Editar cliente' : 'Nova cliente', `<label>Nome *</label><input id="cNome" value="${esc(c.nome)}">
     <div class="grade2"><div><label>Telefone / WhatsApp</label><input id="cTel" inputmode="tel" value="${esc(c.tel)}"></div><div><label>Aniversário</label><input id="cAniv" placeholder="dd/mm" value="${esc(c.aniversario || '')}"></div></div>
     <label>Observação (medida do anel, preferências…)</label><textarea id="cObs" rows="2">${esc(c.obs)}</textarea>
-    <div class="acoes"><button class="btn bloco" id="cSalvar">Salvar</button></div>`);
+    <div class="acoes fixo"><button class="btn bloco" id="cSalvar">Salvar</button></div>`);
   focar('#cNome');
   $('#cSalvar').onclick = () => {
     const nome = $('#cNome').value.trim(); if (!nome) return toast('Informe o nome');
@@ -960,7 +1008,7 @@ async function importarPlanilha() {
     As vendas antigas entram <b>sem data</b> (a planilha não tem a data da venda) e já quitadas. Abas ignoradas: ${r.ignoradas.map(esc).join(', ') || 'nenhuma'}.</p>
     ${r.incompletas.length ? `<div class="aviso">${r.incompletas.length} linha(s) sem custo e sem valor do grama não foram importadas (parecem rascunho): ${esc(r.incompletas.slice(0, 12).join('; '))}${r.incompletas.length > 12 ? '…' : ''}. Se forem peças de verdade, cadastre-as no app.</div>` : ''}
     ${jaTem ? '<div class="aviso">Você já importou uma planilha antes. A importação nova <b>substitui</b> os dados vindos da planilha anterior; o que você cadastrou direto no app continua.</div>' : ''}
-    <div class="acoes"><button class="btn bloco" id="impOk">Importar</button></div>`);
+    <div class="acoes fixo"><button class="btn bloco" id="impOk">Importar</button></div>`);
     $('#impOk').onclick = () => {
       const antigas = new Set(db.pecas.filter(p => p.origem === 'planilha').map(p => p.id));
       db.vendas = db.vendas.filter(v => !v.itens.some(i => antigas.has(i.pecaId)));
@@ -1082,11 +1130,31 @@ function apagarTudo() {
 }
 
 /* ---------- modal ---------- */
+// No celular, o botão "voltar" fecha o formulário aberto (e, fora do Início, volta para o Início)
+// em vez de sair do app. Enquanto houver formulário aberto, existe uma entrada no histórico.
+let modalNoHistorico = false;
 function abrirModal(titulo, html) {
+  if (!modalNoHistorico) { history.pushState({ modal: true }, ''); modalNoHistorico = true; }
   $('#modais').innerHTML = `<div class="fundo-modal" onclick="if(event.target===this)fecharModal()"><div class="modal">
     <div class="modal-topo"><h3>${esc(titulo)}</h3><button onclick="fecharModal()">✕</button></div>${html}</div></div>`;
 }
-function fecharModal() { $('#modais').innerHTML = ''; }
+function fecharModal() {
+  $('#modais').innerHTML = '';
+  // espera um instante: muitas ações fecham um formulário e já abrem outro
+  setTimeout(() => { if (modalNoHistorico && !$('#modais').innerHTML) { modalNoHistorico = false; voltandoSozinho = true; history.back(); } }, 0);
+}
+let voltandoSozinho = false;
+window.addEventListener('popstate', () => {
+  if (voltandoSozinho) {
+    voltandoSozinho = false;
+    // se o formulário levou para outra aba, o "voltar" seguinte deve trazer ao Início
+    if (aba !== 'inicio' && !(history.state && history.state.aba)) history.pushState({ aba }, '');
+    return;
+  }
+  if (modalNoHistorico) { modalNoHistorico = false; $('#modais').innerHTML = ''; return; }
+  if ($('#modais').innerHTML) return;
+  if (aba !== 'inicio') irPara('inicio', false, true);
+});
 document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal(); });
 
 /* ---------- cotação do ouro (grama de ouro puro 24k em reais) ---------- */
@@ -1124,7 +1192,7 @@ function editarPrecoVenda() {
     <input id="pvNovo" inputmode="decimal" value="${String(db.config.precoGrama).replace('.', ',')}">${merc}
     <div class="mini" style="margin-top:6px">Usado para sugerir o preço das peças: peso × preço do grama.</div>
     <label><input type="checkbox" id="pvTodas" style="width:auto;margin-right:6px">Atualizar também o preço das ${db.pecas.filter(emEstoque).length} peças em estoque</label>
-    <div class="acoes"><button class="btn bloco" id="pvSalvar">Salvar</button></div>`);
+    <div class="acoes fixo"><button class="btn bloco" id="pvSalvar">Salvar</button></div>`);
   focar('#pvNovo', true);
   $('#pvSalvar').onclick = () => {
     const v = numCampo($('#pvNovo').value); if (!(v > 0)) return toast('Informe um valor válido');
