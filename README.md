@@ -13,8 +13,10 @@ Abra em **https://vinicauduro.github.io/controle-joias/** e, no celular, use
   (o custo é calculado sozinho) e preço de venda sugerido (peso × preço do grama).
   Reservar peça para uma cliente, dar baixa (perda, devolução, conserto) e buscar por
   fornecedor, tipo de peça ou referência.
-- **Vendas**: uma ou várias peças por venda, com lucro e markup na hora. À vista (Pix,
-  dinheiro, cartão) ou parcelado com entrada.
+- **Vendas**: uma ou várias peças por venda. Pix/transferência, dinheiro, débito, crédito em
+  1 a 12 vezes ou crediário com entrada. A **taxa da máquina** é calculada pela tabela de taxas
+  (editável em Mais) e a **embalagem** (caixa + sacola P/M, editável) entra como despesa: o app
+  mostra o **lucro líquido** = venda − custo − taxa − embalagem.
 - **A receber**: parcelas vencidas e a vencer, botão "Recebi" e lembrete pelo WhatsApp.
 - **Clientes**: histórico de compras, quanto deve e peças reservadas.
 - **Painel e relatórios**: valor do estoque, vendas e lucro do mês, lucro dos últimos 12 meses,

@@ -154,11 +154,23 @@
 const CHAVE = 'joias_db_v1';
 const XLSX_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
 
+// Taxa total da maquininha (% sobre o valor da venda): débito e crédito de 1 a 12 vezes.
+const TAXAS_PADRAO = { debito: 1.00, 1: 2.97, 2: 3.81, 3: 4.62, 4: 5.43, 5: 6.25, 6: 7.08, 7: 7.97, 8: 8.82, 9: 9.67, 10: 10.54, 11: 11.41, 12: 12.30 };
+const EMBALAGENS_PADRAO = [{ nome: 'Caixa + sacola P', valor: 10 }, { nome: 'Caixa + sacola M', valor: 15 }];
 function dbVazio() {
-  return { versao: 1, config: { nomeLoja: '', precoGrama: 1280, ultimoBackup: null }, fornecedores: [], clientes: [], pecas: [], vendas: [] };
+  return { versao: 1, config: { nomeLoja: '', precoGrama: 1280, ultimoBackup: null, taxas: Object.assign({}, TAXAS_PADRAO), embalagens: EMBALAGENS_PADRAO.map(e => Object.assign({}, e)) },
+    fornecedores: [], clientes: [], pecas: [], vendas: [] };
 }
 let db = dbVazio();
 try { const raw = localStorage.getItem(CHAVE); if (raw) db = Object.assign(dbVazio(), JSON.parse(raw)); } catch (e) { db = dbVazio(); }
+completarConfig();
+// Dados de versões anteriores (ou vindos de outro aparelho) podem não ter as configurações novas.
+function completarConfig() {
+  const c = db.config || (db.config = {});
+  if (!c.taxas) c.taxas = Object.assign({}, TAXAS_PADRAO);
+  if (!Array.isArray(c.embalagens)) c.embalagens = EMBALAGENS_PADRAO.map(e => Object.assign({}, e));
+  if (!c.precoGrama) c.precoGrama = 1280;
+}
 function salvar() {
   try { localStorage.setItem(CHAVE, JSON.stringify(db)); }
   catch (e) { toast('Não foi possível salvar: memória do navegador cheia. Faça um backup.'); }
@@ -213,6 +225,11 @@ const cliente = id => db.clientes.find(c => c.id === id);
 const venda = id => db.vendas.find(v => v.id === id);
 const nomeCliente = id => (cliente(id) || {}).nome || 'Sem cliente';
 
+// Despesas da venda: taxa da maquininha e embalagem. Lucro líquido = venda − custo das peças − despesas.
+const despesasVenda = v => (Number(v.taxa) || 0) + (Number(v.embalagem) || 0);
+const lucroVenda = v => totalVenda(v) - custoVenda(v) - despesasVenda(v);
+const ehCrediario = forma => /^(Crediário|Parcelado)/.test(forma || '');
+function taxaPct(forma, n) { const t = db.config.taxas || {}; return forma === 'Cartão de débito' ? (t.debito || 0) : forma === 'Cartão de crédito' ? (t[n] || 0) : 0; }
 function custoVenda(v) { return v.itens.reduce((s, it) => s + ((peca(it.pecaId) || {}).custo || 0), 0); }
 function totalVenda(v) { return v.itens.reduce((s, it) => s + (Number(it.valor) || 0), 0); }
 function recebidoVenda(v) { return (v.parcelas || []).filter(x => x.pago).reduce((s, x) => s + x.valor, 0); }
@@ -288,8 +305,9 @@ function telaInicio() {
   const ym = estado.inicioMes;
   const vMes = db.vendas.filter(v => mesDe(v.data) === ym);
   const fatMes = vMes.reduce((s, v) => s + totalVenda(v), 0);
-  const lucroMes = vMes.reduce((s, v) => s + totalVenda(v) - custoVenda(v), 0);
-  const custoMes = fatMes - lucroMes;
+  const lucroMes = vMes.reduce((s, v) => s + lucroVenda(v), 0);
+  const despMes = vMes.reduce((s, v) => s + despesasVenda(v), 0);
+  const custoMes = fatMes - lucroMes - despMes;
   const abertas = parcelasAbertas();
   const aReceber = abertas.reduce((s, o) => s + o.parcela.valor, 0);
   const vencidas = abertas.filter(o => o.parcela.venc && o.parcela.venc < hoje());
@@ -299,7 +317,7 @@ function telaInicio() {
   // últimos 12 meses
   const meses = []; let d = new Date(); d.setDate(1);
   for (let i = 11; i >= 0; i--) { const x = new Date(d.getFullYear(), d.getMonth() - i, 1); meses.push(x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0')); }
-  const lucroPorMes = meses.map(m => db.vendas.filter(v => mesDe(v.data) === m).reduce((s, v) => s + totalVenda(v) - custoVenda(v), 0));
+  const lucroPorMes = meses.map(m => db.vendas.filter(v => mesDe(v.data) === m).reduce((s, v) => s + lucroVenda(v), 0));
   const maxL = Math.max(1, ...lucroPorMes.map(Math.abs));
   const grafico = meses.map((m, i) => `<div class="col" title="${nomeMes(m)}: ${R(lucroPorMes[i])}">
       <div class="n">${lucroPorMes[i] ? Math.round(lucroPorMes[i] / 100) / 10 + 'k' : ''}</div>
@@ -320,7 +338,7 @@ function telaInicio() {
     ${opMeses.map(m => `<option value="${m}" ${m === ym ? 'selected' : ''}>${nomeMes(m)}</option>`).join('')}</select></h2>
   <div class="cards">
     <div class="card destaque"><div class="rot">Vendido</div><div class="val">${R(fatMes)}</div><div class="sub">${vMes.length} venda(s), ${vMes.reduce((s, v) => s + v.itens.length, 0)} peça(s)</div></div>
-    <div class="card"><div class="rot">Lucro</div><div class="val ${lucroMes >= 0 ? 'pos' : 'neg'}">${R(lucroMes)}</div><div class="sub">markup ${P(custoMes ? lucroMes / custoMes : NaN)}</div></div>
+    <div class="card"><div class="rot">Lucro líquido</div><div class="val ${lucroMes >= 0 ? 'pos' : 'neg'}">${R(lucroMes)}</div><div class="sub">${despMes ? 'já tirando ' + R(despMes) + ' de taxa e embalagem' : 'markup ' + P(custoMes ? lucroMes / custoMes : NaN)}</div></div>
     <div class="card"><div class="rot">Recebido no mês</div><div class="val">${R(recebidoMes)}</div><div class="sub">entradas e parcelas</div></div>
     <div class="card" onclick="estado.vendasVista='receber';irPara('vendas')" style="cursor:pointer"><div class="rot">A receber</div><div class="val">${R(aReceber)}</div>
       <div class="sub ${totVencido ? 'neg' : ''}">${totVencido ? R(totVencido) + ' vencido' : 'nada vencido'}</div></div>
@@ -569,14 +587,14 @@ function listaVendas() {
     if (q) { const alvo = semAcento(nomeCliente(v.clienteId) + ' ' + v.itens.map(i => (peca(i.pecaId) || {}).descricao).join(' ')); if (!q.split(/\s+/).every(t => alvo.includes(t))) return false; }
     return true;
   }).sort((a, b) => (b.data || '').localeCompare(a.data || '') || (b.criadoEm || 0) - (a.criadoEm || 0));
-  const fat = l.reduce((s, v) => s + totalVenda(v), 0), luc = l.reduce((s, v) => s + totalVenda(v) - custoVenda(v), 0);
-  let html = `<div class="mini" style="margin-bottom:8px">${l.length} venda(s) · ${R(fat)} vendido · lucro <b class="${luc >= 0 ? 'pos' : 'neg'}">${R(luc)}</b> · markup ${P(fat - luc ? luc / (fat - luc) : NaN)}</div>`;
+  const fat = l.reduce((s, v) => s + totalVenda(v), 0), luc = l.reduce((s, v) => s + lucroVenda(v), 0), desp = l.reduce((s, v) => s + despesasVenda(v), 0);
+  let html = `<div class="mini" style="margin-bottom:8px">${l.length} venda(s) · ${R(fat)} vendido · lucro líquido <b class="${luc >= 0 ? 'pos' : 'neg'}">${R(luc)}</b>${desp ? ' · taxas e embalagens ' + R(desp) : ''} · markup ${P(fat - luc - desp ? luc / (fat - luc - desp) : NaN)}</div>`;
   html += l.length ? '<div class="lista">' + l.slice(0, 300).map(itemVenda).join('') + '</div>' : '<div class="vazio">Nenhuma venda ainda. Toque em <b>+</b> para registrar.</div>';
   if (l.length > 300) html += '<div class="mini" style="text-align:center;margin-top:8px">Mostrando as 300 mais recentes. Use a busca ou o filtro de mês.</div>';
   const el = $('#resVendas'); if (el) el.innerHTML = html;
 }
 function itemVenda(v) {
-  const tot = totalVenda(v), luc = tot - custoVenda(v), ab = emAbertoVenda(v);
+  const tot = totalVenda(v), luc = lucroVenda(v), ab = emAbertoVenda(v);
   const descs = v.itens.map(i => (peca(i.pecaId) || {}).descricao || '?');
   return `<div class="item" onclick="verVenda('${v.id}')"><div class="corpo">
     <div class="tit">${esc(nomeCliente(v.clienteId))} ${ab > 0.009 ? `<span class="chip reservado">deve ${R(ab)}</span>` : ''}</div>
@@ -593,28 +611,44 @@ function itemParcela(o) {
   </div><div class="dir"><div class="v">${R(x.valor)}</div>${!x.pago ? `<button class="btn peq" style="margin-top:4px" onclick="event.stopPropagation();receberParcela('${v.id}',${n - 1})">Recebi</button>` : ''}</div></div>`;
 }
 
-const FORMAS = ['Pix', 'Dinheiro', 'Cartão de débito', 'Cartão de crédito', 'Parcelado (a receber)'];
+const FORMAS = ['Pix / transferência', 'Dinheiro', 'Cartão de débito', 'Cartão de crédito', 'Crediário (a receber)'];
+function opcoesEmbalagem(sel) {
+  const l = db.config.embalagens || [];
+  return `<option value="">Sem embalagem</option>${l.map((e, i) => `<option value="${i}" ${String(i) === String(sel) ? 'selected' : ''}>${esc(e.nome)} · ${R(e.valor)}</option>`).join('')}<option value="outra" ${sel === 'outra' ? 'selected' : ''}>Outro valor</option>`;
+}
 function formVenda(preSel) {
   const disp = db.pecas.filter(emEstoque).sort((a, b) => a.descricao.localeCompare(b.descricao));
   if (!disp.length) return toast('Não há peças em estoque para vender');
   const sel = new Map((preSel || []).map(id => [id, (peca(id) || {}).preco || 0]));
   const pre = preSel && preSel.length === 1 ? peca(preSel[0]) : null;
   const cliPre = pre && pre.status === 'reservado' ? pre.reservadoPara : '';
+  const embPadrao = (db.config.embalagens || []).length ? '0' : '';
   abrirModal('Nova venda', `
     <label>Cliente</label><input id="vCli" list="dlClientes" value="${esc(cliPre)}" placeholder="Nome da cliente">${datalistClientes()}
     <div class="grade2"><div><label>Telefone (opcional)</label><input id="vTel" inputmode="tel"></div><div><label>Data</label><input id="vData" type="date" value="${hoje()}"></div></div>
     <label>Peças vendidas</label>
     <input type="search" id="vBusca" placeholder="Buscar no estoque…" style="margin-bottom:6px">
     <div id="vSelecionadas"></div><div id="vLista" style="max-height:260px;overflow-y:auto"></div>
-    <div class="card" style="margin-top:10px" id="vResumo"></div>
-    <label>Forma de pagamento</label><select id="vForma">${FORMAS.map(f => `<option>${f}</option>`).join('')}</select>
+    <div class="grade2">
+      <div><label>Forma de pagamento</label><select id="vForma">${FORMAS.map(f => `<option>${f}</option>`).join('')}</select></div>
+      <div id="vCartaoBox" class="oculto"><label>Parcelas no cartão</label><select id="vCartaoN">${Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i + 1}x · ${String((db.config.taxas || {})[i + 1] || 0).replace('.', ',')}%</option>`).join('')}</select></div>
+    </div>
     <div id="vParc" class="oculto"><div class="grade3">
       <div><label>Entrada (R$)</label><input id="vEnt" inputmode="decimal" value="0"></div>
       <div><label>Nº parcelas</label><input id="vN" type="number" min="1" value="2"></div>
       <div><label>1º vencimento</label><input id="vVenc" type="date" value="${somaMeses(hoje(), 1)}"></div>
     </div><div class="mini" id="vParcDica" style="margin-top:6px"></div></div>
+    <div class="grade2">
+      <div><label>Taxa da máquina (R$)</label><input id="vTaxa" inputmode="decimal" value="0"></div>
+      <div><label>Embalagem</label><select id="vEmb">${opcoesEmbalagem(embPadrao)}</select></div>
+    </div>
+    <div id="vEmbOutraBox" class="oculto"><label>Valor da embalagem (R$)</label><input id="vEmbV" inputmode="decimal" value="0"></div>
+    <div class="card" style="margin-top:10px" id="vResumo"></div>
     <label>Observação</label><input id="vObs">
     <div class="acoes"><button class="btn bloco" id="vSalvar">Registrar venda</button></div>`);
+  let taxaManual = false;
+  const totalSel = () => { let t = 0; for (const v of sel.values()) t += v; return t; };
+  const valorEmb = () => { const e = $('#vEmb').value; if (e === '') return 0; if (e === 'outra') return numCampo($('#vEmbV').value); return Number((db.config.embalagens[+e] || {}).valor) || 0; };
   const pintar = () => {
     const q = semAcento($('#vBusca').value).trim();
     const linha = (p, marcado) => `<div class="sel-peca"><input type="checkbox" data-id="${p.id}" ${marcado ? 'checked' : ''}>
@@ -633,17 +667,27 @@ function formVenda(preSel) {
     resumo();
   };
   const resumo = () => {
-    let tot = 0, custo = 0; for (const [id, val] of sel) { tot += val; custo += peca(id).custo; }
+    const tot = totalSel(); let custo = 0; for (const id of sel.keys()) custo += peca(id).custo;
+    const forma = $('#vForma').value, nCartao = +$('#vCartaoN').value;
+    $('#vCartaoBox').classList.toggle('oculto', forma !== 'Cartão de crédito');
+    $('#vEmbOutraBox').classList.toggle('oculto', $('#vEmb').value !== 'outra');
+    const pct = taxaPct(forma, nCartao);
+    if (!taxaManual) $('#vTaxa').value = String(arred(tot * pct / 100)).replace('.', ',');
+    const taxa = numCampo($('#vTaxa').value), emb = valorEmb(), luc = tot - custo - taxa - emb;
     $('#vResumo').innerHTML = `<div class="resumo-linha"><span>${sel.size} peça(s)</span><b>${R(tot)}</b></div>
-      <div class="resumo-linha"><span>Custo</span><span>${R(custo)}</span></div>
-      <div class="resumo-linha"><span>Lucro</span><b class="${tot - custo >= 0 ? 'pos' : 'neg'}">${R(tot - custo)} ${custo ? '(' + P((tot - custo) / custo) + ')' : ''}</b></div>`;
-    const parc = $('#vForma').value.startsWith('Parcelado');
+      <div class="resumo-linha"><span>Custo das peças</span><span>− ${R(custo)}</span></div>
+      ${taxa ? `<div class="resumo-linha"><span>Taxa da máquina${pct ? ' (' + String(pct).replace('.', ',') + '%)' : ''}</span><span>− ${R(taxa)}</span></div>` : ''}
+      ${emb ? `<div class="resumo-linha"><span>Embalagem</span><span>− ${R(emb)}</span></div>` : ''}
+      <div class="resumo-linha"><span>Lucro líquido</span><b class="${luc >= 0 ? 'pos' : 'neg'}">${R(luc)} ${custo ? '(' + P(luc / custo) + ')' : ''}</b></div>`;
+    const parc = ehCrediario(forma);
     $('#vParc').classList.toggle('oculto', !parc);
     if (parc) { const e = numCampo($('#vEnt').value), n = Math.max(1, parseInt($('#vN').value) || 1); $('#vParcDica').textContent = `${n}× de ${R((tot - e) / n)} todo mês a partir de ${D($('#vVenc').value)}`; }
   };
   $('#vBusca').oninput = pintar;
-  ['vForma', 'vEnt', 'vN', 'vVenc'].forEach(i => $('#' + i).oninput = resumo);
-  $('#vForma').onchange = resumo;
+  ['vEnt', 'vN', 'vVenc', 'vEmbV'].forEach(i => $('#' + i).oninput = resumo);
+  ['vForma', 'vCartaoN'].forEach(i => $('#' + i).onchange = () => { taxaManual = false; resumo(); });
+  $('#vEmb').onchange = resumo;
+  $('#vTaxa').oninput = () => { taxaManual = true; resumo(); };
   pintar();
   $('#vSalvar').onclick = () => {
     if (!sel.size) return toast('Escolha pelo menos uma peça');
@@ -651,21 +695,26 @@ function formVenda(preSel) {
     const data = $('#vData').value || hoje();
     const itens = [...sel].map(([pecaId, valor]) => ({ pecaId, valor: arred(valor) }));
     const tot = itens.reduce((s, i) => s + i.valor, 0);
-    const forma = $('#vForma').value;
+    let forma = $('#vForma').value;
+    if (forma === 'Cartão de crédito') forma += ' ' + $('#vCartaoN').value + 'x';
     let parcelas;
-    if (forma.startsWith('Parcelado')) {
+    if (ehCrediario(forma)) {
       const ent = Math.min(tot, numCampo($('#vEnt').value)), n = Math.max(1, Math.min(48, parseInt($('#vN').value) || 1)), venc = $('#vVenc').value || somaMeses(data, 1);
       parcelas = []; if (ent > 0) parcelas.push({ venc: data, valor: arred(ent), pago: true, dataPg: data, entrada: true });
       const base = Math.floor((tot - ent) / n * 100) / 100;
       for (let i = 0; i < n; i++) parcelas.push({ venc: somaMeses(venc, i), valor: i === n - 1 ? arred(tot - ent - base * (n - 1)) : base, pago: false, dataPg: null });
-      if (!nomeCli && !confirm('Venda parcelada sem nome de cliente. Continuar?')) return;
+      if (!nomeCli && !confirm('Venda no crediário sem nome de cliente. Continuar?')) return;
     } else parcelas = [{ venc: data, valor: arred(tot), pago: true, dataPg: data }];
-    const v = { id: uid(), data, clienteId: acharOuCriarCliente(nomeCli, $('#vTel').value.trim()), itens, forma, parcelas, obs: $('#vObs').value.trim(), criadoEm: Date.now() };
+    const embSel = $('#vEmb').value;
+    const v = { id: uid(), data, clienteId: acharOuCriarCliente(nomeCli, $('#vTel').value.trim()), itens, forma, parcelas,
+      taxa: arred(numCampo($('#vTaxa').value)), embalagem: arred(valorEmb()),
+      embalagemNome: embSel === '' ? '' : embSel === 'outra' ? 'Outra' : (db.config.embalagens[+embSel] || {}).nome || '',
+      obs: $('#vObs').value.trim(), criadoEm: Date.now() };
     db.vendas.push(v);
     for (const it of itens) { const p = peca(it.pecaId); p.status = 'vendido'; p.vendaId = v.id; }
     salvar(); fecharModal(); estado.vendasVista = 'vendas';
     if (aba !== 'vendas') irPara('vendas'); else render();
-    toast('Venda registrada! Lucro de ' + R(tot - custoVenda(v)));
+    toast('Venda registrada! Lucro líquido de ' + R(lucroVenda(v)));
   };
 }
 function verVenda(id) {
@@ -678,7 +727,10 @@ function verVenda(id) {
     <div class="resumo-linha"><span>Pagamento</span><b>${esc(v.forma || '—')}</b></div>
     ${v.itens.map(i => { const p = peca(i.pecaId) || { descricao: '(peça excluída)', custo: 0, gramas: 0 }; return `<div class="resumo-linha"><span>${esc(p.descricao)}<br><span class="mini">${G(p.gramas)} · custo ${R(p.custo)}</span></span><b>${R(i.valor)}</b></div>`; }).join('')}
     <div class="resumo-linha"><span>Total</span><b>${R(tot)}</b></div>
-    <div class="resumo-linha"><span>Lucro</span><b class="${tot - custo >= 0 ? 'pos' : 'neg'}">${R(tot - custo)} (${P(custo ? (tot - custo) / custo : NaN)})</b></div>
+    <div class="resumo-linha"><span>Custo das peças</span><span>− ${R(custo)}</span></div>
+    ${v.taxa ? `<div class="resumo-linha"><span>Taxa da máquina</span><span>− ${R(v.taxa)}</span></div>` : ''}
+    ${v.embalagem ? `<div class="resumo-linha"><span>Embalagem${v.embalagemNome ? ' (' + esc(v.embalagemNome) + ')' : ''}</span><span>− ${R(v.embalagem)}</span></div>` : ''}
+    <div class="resumo-linha"><span>Lucro líquido</span><b class="${lucroVenda(v) >= 0 ? 'pos' : 'neg'}">${R(lucroVenda(v))} (${P(custo ? lucroVenda(v) / custo : NaN)})</b></div>
     ${v.obs ? `<div class="mini" style="margin-top:8px">📝 ${esc(v.obs)}</div>` : ''}</div>`;
   if (v.parcelas && v.parcelas.length > 1) {
     html += `<h2>Parcelas · em aberto ${R(emAbertoVenda(v))}</h2><div class="lista">` + v.parcelas.map((x, i) => `<div class="sel-peca"><div class="corpo"><b>${x.entrada ? 'Entrada' : 'Parcela ' + i + '/' + (v.parcelas.length - (v.parcelas[0].entrada ? 1 : 0))}</b> — ${R(x.valor)}<div class="mini">vence ${D(x.venc)}${x.pago ? ' · paga em ' + D(x.dataPg) : ''}</div></div>
@@ -714,12 +766,15 @@ function editarVenda(id) {
   abrirModal('Editar venda', `<label>Cliente</label><input id="evCli" list="dlClientes" value="${esc(c ? c.nome : '')}">${datalistClientes()}
     <label>Data</label><input id="evData" type="date" value="${v.data || ''}">
     ${v.itens.map((i, k) => `<label>${esc((peca(i.pecaId) || {}).descricao || '?')}</label><input id="evIt${k}" inputmode="decimal" value="${String(i.valor).replace('.', ',')}">`).join('')}
+    <div class="grade2"><div><label>Taxa da máquina (R$)</label><input id="evTaxa" inputmode="decimal" value="${String(v.taxa || 0).replace('.', ',')}"></div>
+      <div><label>Embalagem (R$)</label><input id="evEmb" inputmode="decimal" value="${String(v.embalagem || 0).replace('.', ',')}"></div></div>
     <label>Observação</label><input id="evObs" value="${esc(v.obs)}">
     <div class="mini" style="margin-top:8px">Se mudar os valores de uma venda à vista, o pagamento é ajustado junto. Em venda parcelada, ajuste as parcelas cancelando e registrando de novo.</div>
     <div class="acoes"><button class="btn bloco" id="evSalvar">Salvar</button></div>`);
   $('#evSalvar').onclick = () => {
     v.clienteId = acharOuCriarCliente($('#evCli').value) || null; v.data = $('#evData').value || null; v.obs = $('#evObs').value.trim();
     v.itens.forEach((i, k) => i.valor = arred(numCampo($('#evIt' + k).value)));
+    v.taxa = arred(numCampo($('#evTaxa').value)); v.embalagem = arred(numCampo($('#evEmb').value));
     if (v.parcelas.length === 1) v.parcelas[0].valor = arred(totalVenda(v));
     salvar(); fecharModal(); render(); verVenda(id); toast('Venda atualizada');
   };
@@ -798,6 +853,13 @@ function telaMais() {
     <div class="mini" style="margin-top:4px">Usado para sugerir o preço das peças novas: peso × preço do grama.</div>
     <div class="acoes"><button class="btn" onclick="salvarConfig()">Salvar</button>
     <button class="btn sec" onclick="reprecificar()">Aplicar preço a todo o estoque</button></div></div>
+  <h2>Taxas da máquina</h2><div class="card">
+    <div class="mini" style="margin-bottom:6px">Taxa total (%) cobrada sobre o valor da venda. É usada para calcular a taxa de cada venda no cartão.</div>
+    <div class="grade3">${['debito', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(k => `<div><label>${k === 'debito' ? 'Débito' : k + 'x crédito'}</label><input class="cfTaxa" data-k="${k}" inputmode="decimal" value="${String((db.config.taxas || {})[k] ?? '').replace('.', ',')}"></div>`).join('')}</div>
+    <div class="acoes"><button class="btn" onclick="salvarTaxas()">Salvar taxas</button></div></div>
+  <h2>Embalagens</h2><div class="card"><div id="cfEmbs">${(db.config.embalagens || []).map(linhaEmbalagem).join('')}</div>
+    <div class="acoes"><button class="btn sec" onclick="document.getElementById('cfEmbs').insertAdjacentHTML('beforeend', linhaEmbalagem({ nome: '', valor: '' }))">+ Embalagem</button>
+    <button class="btn" onclick="salvarEmbalagens()">Salvar embalagens</button></div></div>
   <h2>Dados</h2><div class="lista">
     <div class="item" onclick="importarPlanilha()"><div class="corpo"><div class="tit">📥 Importar planilha de estoque (.xlsx)</div><div class="det">A planilha antiga, com uma aba por fornecedor</div></div></div>
     <div class="item" onclick="exportarExcel()"><div class="corpo"><div class="tit">📊 Exportar para Excel</div><div class="det">Estoque, vendas, parcelas e clientes</div></div></div>
@@ -806,6 +868,18 @@ function telaMais() {
     <div class="item" onclick="apagarTudo()"><div class="corpo"><div class="tit neg">🗑️ Apagar todos os dados</div></div></div>
   </div>
   <p class="mini" style="text-align:center;margin-top:20px">${db.pecas.length} peças · ${db.vendas.length} vendas · ${db.clientes.length} clientes<br>${Nuvem.ativa ? 'Os dados ficam na nuvem e sincronizam entre celular e computador (☁️ no topo).' : 'Os dados ficam guardados neste aparelho.'}</p>`;
+}
+function linhaEmbalagem(e) {
+  return `<div class="grade2 cfEmb"><div><label>Nome</label><input class="cfEmbNome" value="${esc(e.nome)}" placeholder="Ex.: Caixa + sacola G"></div>
+    <div><label>Custo (R$)</label><input class="cfEmbValor" inputmode="decimal" value="${String(e.valor ?? '').replace('.', ',')}"></div></div>`;
+}
+function salvarTaxas() {
+  const t = {}; document.querySelectorAll('.cfTaxa').forEach(i => { t[i.dataset.k] = numCampo(i.value); });
+  db.config.taxas = t; salvar(); render(); toast('Taxas salvas');
+}
+function salvarEmbalagens() {
+  db.config.embalagens = [...document.querySelectorAll('.cfEmb')].map(d => ({ nome: d.querySelector('.cfEmbNome').value.trim(), valor: numCampo(d.querySelector('.cfEmbValor').value) })).filter(e => e.nome);
+  salvar(); render(); toast('Embalagens salvas');
 }
 function salvarConfig() {
   db.config.nomeLoja = $('#cfNome').value.trim();
@@ -822,14 +896,14 @@ function reprecificar() {
 
 function relatorio(tipo) {
   const linhas = new Map();
-  const add = (k, f) => { if (!linhas.has(k)) linhas.set(k, { k, qC: 0, gC: 0, custoC: 0, qV: 0, fat: 0, custoV: 0, qE: 0, custoE: 0, receb: 0, gE: 0 }); f(linhas.get(k)); };
+  const add = (k, f) => { if (!linhas.has(k)) linhas.set(k, { k, qC: 0, gC: 0, custoC: 0, qV: 0, fat: 0, custoV: 0, qE: 0, custoE: 0, receb: 0, gE: 0, desp: 0 }); f(linhas.get(k)); };
   if (tipo === 'mes') {
-    for (const v of db.vendas) add(v.data ? mesDe(v.data) : 'sem data', r => { r.qV += v.itens.length; r.fat += totalVenda(v); r.custoV += custoVenda(v); });
+    for (const v of db.vendas) add(v.data ? mesDe(v.data) : 'sem data', r => { r.qV += v.itens.length; r.fat += totalVenda(v); r.custoV += custoVenda(v); r.desp += despesasVenda(v); });
     for (const o of todasParcelas()) if (o.parcela.pago && o.parcela.dataPg) add(mesDe(o.parcela.dataPg), r => r.receb += o.parcela.valor);
     for (const p of db.pecas) if (p.dataCompra) add(mesDe(p.dataCompra), r => { r.qC++; r.custoC += p.custo; });
     const l = [...linhas.values()].sort((a, b) => b.k.localeCompare(a.k));
-    return abrirModal('Por mês', tabela(['Mês', 'Comprado', 'Peças vend.', 'Vendido', 'Lucro', 'Recebido'],
-      l.map(r => [r.k === 'sem data' ? 'Sem data' : nomeMes(r.k), R(r.custoC), r.qV, R(r.fat), lucroCel(r.fat - r.custoV), R(r.receb)])));
+    return abrirModal('Por mês', tabela(['Mês', 'Comprado', 'Peças vend.', 'Vendido', 'Taxas + emb.', 'Lucro líquido', 'Recebido'],
+      l.map(r => [r.k === 'sem data' ? 'Sem data' : nomeMes(r.k), R(r.custoC), r.qV, R(r.fat), R(r.desp), lucroCel(r.fat - r.custoV - r.desp), R(r.receb)])));
   }
   for (const p of db.pecas) {
     const k = tipo === 'fornecedor' ? (p.fornecedor || 'Sem fornecedor') : tipo === 'categoria' ? p.categoria : (p.fornecedor || '?') + '|' + (p.dataCompra || '');
@@ -848,7 +922,7 @@ function relatorio(tipo) {
   l.sort((a, b) => (b.fat - b.custoV) - (a.fat - a.custoV));
   abrirModal(tipo === 'fornecedor' ? 'Por fornecedor' : 'Por tipo de peça', tabela([tipo === 'fornecedor' ? 'Fornecedor' : 'Tipo', 'Compradas', 'Vendidas', 'Vendido', 'Lucro', 'Markup', 'Em estoque'],
     l.map(r => [esc(r.k), r.qC, r.qV, R(r.fat), lucroCel(r.fat - r.custoV), P(r.custoV ? (r.fat - r.custoV) / r.custoV : NaN), `${r.qE} · ${R(r.custoE)}`])) +
-    '<p class="mini">Markup = lucro ÷ custo das peças vendidas. Em estoque = peças disponíveis e o custo delas.</p>');
+    '<p class="mini">Lucro aqui é venda − custo da peça, antes da taxa da máquina e da embalagem (essas aparecem no relatório por mês). Markup = lucro ÷ custo das peças vendidas. Em estoque = peças disponíveis e o custo delas.</p>');
 }
 const lucroCel = v => `<span class="${v >= 0 ? 'pos' : 'neg'}">${R(v)}</span>`;
 function tabela(cab, linhas) {
@@ -975,7 +1049,7 @@ async function exportarExcel() {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(db.pecas.filter(emEstoque).map(linhaPeca)), 'Estoque');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(db.pecas.map(linhaPeca)), 'Todas as peças');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(db.vendas.map(v => ({ Data: v.data ? D(v.data) : '', Cliente: nomeCliente(v.clienteId), Peças: v.itens.map(i => (peca(i.pecaId) || {}).descricao).join(', '),
-      Total: totalVenda(v), Custo: arred(custoVenda(v)), Lucro: arred(totalVenda(v) - custoVenda(v)), Pagamento: v.forma, 'Em aberto': emAbertoVenda(v), Obs: v.obs }))), 'Vendas');
+      Total: totalVenda(v), Custo: arred(custoVenda(v)), 'Taxa máquina': v.taxa || 0, Embalagem: v.embalagem || 0, 'Lucro líquido': arred(lucroVenda(v)), Pagamento: v.forma, 'Em aberto': emAbertoVenda(v), Obs: v.obs }))), 'Vendas');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(todasParcelas().filter(o => o.venda.parcelas.length > 1).map(o => ({ Cliente: nomeCliente(o.venda.clienteId), Vencimento: D(o.parcela.venc), Valor: o.parcela.valor, Situação: o.parcela.pago ? 'Paga' : (o.parcela.venc < hoje() ? 'Vencida' : 'A vencer'), 'Pago em': o.parcela.dataPg ? D(o.parcela.dataPg) : '' }))), 'Parcelas');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(db.clientes.map(c => { const r = resumoCliente(c); return { Nome: c.nome, Telefone: c.tel, Aniversário: c.aniversario || '', Compras: r.vendas.length, 'Total comprado': r.total, 'Em aberto': arred(r.deve), Obs: c.obs }; })), 'Clientes');
     XLSX.writeFile(wb, 'joias-' + hoje() + '.xlsx');
@@ -998,7 +1072,7 @@ async function restaurarBackup() {
     const d = JSON.parse(await f.text());
     if (!d || !Array.isArray(d.pecas) || !Array.isArray(d.vendas)) throw new Error('arquivo não é um backup do app');
     if (!confirm(`Restaurar o backup com ${d.pecas.length} peças e ${d.vendas.length} vendas? Os dados atuais deste aparelho serão substituídos.`)) return;
-    db = Object.assign(dbVazio(), d); salvar(); irPara('inicio'); toast('Backup restaurado');
+    db = Object.assign(dbVazio(), d); completarConfig(); salvar(); irPara('inicio'); toast('Backup restaurado');
   } catch (e) { toast('Backup inválido: ' + e.message); }
 }
 function apagarTudo() {
