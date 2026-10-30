@@ -1,6 +1,6 @@
 // Busca sempre a versão nova quando há internet e usa a cópia guardada quando não há.
-const CACHE = 'joias-v5';
-const FILES = ['./', './index.html', './manifest.json', './config.js', './supabase.js', './nuvem.js', './icon-192.png', './icon-512.png', './apple-touch-icon.png', './logo-redonda.png', './logo-topo.png', './favicon.ico', './favicon-32.png', './favicon-96.png'];
+const CACHE = 'joias-v6';
+const FILES = ['./', './index.html', './manifest.json', './config.js', './supabase.js', './nuvem.js', './icon-192.png', './icon-512.png', './apple-touch-icon.png', './logo-redonda.png', './logo-topo.png', './favicon.ico', './favicon-32.png', './favicon-96.png', './icon-maskable-192.png', './icon-maskable-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)));
