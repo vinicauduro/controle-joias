@@ -1,10 +1,10 @@
 {
-  "name": "Controle de Joias",
-  "short_name": "Joias",
+  "name": "Ouríssima Joias",
+  "short_name": "Ouríssima",
   "description": "Estoque, vendas, clientes e contas a receber das joias de ouro",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#faf8f3",
+  "background_color": "#ffffff",
   "theme_color": "#8a6d1d",
   "orientation": "portrait",
   "icons": [

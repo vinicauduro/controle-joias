@@ -195,7 +195,7 @@ const Nuvem = (() => {
     if (!el) { el = document.createElement('div'); el.id = 'telaLogin'; document.body.appendChild(el); }
     const criar = modo === 'criar';
     el.innerHTML = `<div class="login"><div class="login-caixa">
-      <div style="font-size:2.4rem">💍</div><h2 style="margin:6px 0 2px">${esc(db.config.nomeLoja || 'Controle de Joias')}</h2>
+      <img src="logo-redonda.png" alt="Ouríssima Joias" class="logo-entrada">
       <p class="mini" style="margin:0 0 10px">${criar ? 'Crie a conta uma vez; depois é só entrar com ela no celular e no computador.' : 'Entre para ver seus dados no celular e no computador.'}</p>
       <label>E-mail</label><input id="lgEmail" type="email" autocomplete="email" inputmode="email">
       <label>Senha</label><input id="lgSenha" type="password" autocomplete="${criar ? 'new-password' : 'current-password'}" placeholder="${criar ? 'mínimo 6 caracteres' : ''}">

@@ -3,10 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Controle de Joias</title>
+<title>Ouríssima Joias</title>
 <meta name="theme-color" content="#8a6d1d">
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <style>
   :root {
@@ -127,6 +128,8 @@
   .atalhos .btn { padding: 16px 10px; font-size: 1rem; border-radius: 14px; }
   .btn-filtros { flex: none; }
   .subtit { font-size: .95rem; margin: 16px 0 6px; }
+  .logo-topo { display: block; height: 40px; width: auto; max-width: 100%; }
+  .logo-entrada { display: block; width: 150px; height: 150px; margin: 0 auto 8px; filter: drop-shadow(0 4px 12px rgba(0,0,0,.18)); }
   .instalar { display: flex; gap: 10px; align-items: center; }
   .instalar .ic { font-size: 1.8rem; }
   .login { position: fixed; inset: 0; z-index: 70; background: linear-gradient(160deg, #8a6d1d, #d8b74e); display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
@@ -137,7 +140,7 @@
 </head>
 <body>
 <header>
-  <h1 id="titulo">💍 Controle de Joias</h1>
+  <h1 id="titulo"><img src="logo-topo.png" alt="Ouríssima Joias" class="logo-topo"></h1>
   <button id="btnNuvem" class="oculto" onclick="Nuvem.menu()" title="Nuvem">☁️</button>
   <button id="btnBusca" onclick="irPara('estoque', true)">🔍</button>
   <div class="cotacoes">
@@ -174,7 +177,7 @@ const XLSX_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.m
 const TAXAS_PADRAO = { debito: 1.00, 1: 2.97, 2: 3.81, 3: 4.62, 4: 5.43, 5: 6.25, 6: 7.08, 7: 7.97, 8: 8.82, 9: 9.67, 10: 10.54, 11: 11.41, 12: 12.30 };
 const EMBALAGENS_PADRAO = [{ nome: 'Caixa + sacola P', valor: 10 }, { nome: 'Caixa + sacola M', valor: 15 }];
 function dbVazio() {
-  return { versao: 1, config: { nomeLoja: '', precoGrama: 1280, ultimoBackup: null, taxas: Object.assign({}, TAXAS_PADRAO), embalagens: EMBALAGENS_PADRAO.map(e => Object.assign({}, e)) },
+  return { versao: 1, config: { nomeLoja: 'Ouríssima Joias', precoGrama: 1280, ultimoBackup: null, taxas: Object.assign({}, TAXAS_PADRAO), embalagens: EMBALAGENS_PADRAO.map(e => Object.assign({}, e)) },
     fornecedores: [], clientes: [], pecas: [], vendas: [] };
 }
 let db = dbVazio();
@@ -301,7 +304,6 @@ function render() {
   const fab = $('#fab');
   fab.classList.toggle('oculto', !['estoque', 'vendas', 'clientes'].includes(aba));
   fab.onclick = aba === 'estoque' ? () => formPeca() : aba === 'vendas' ? () => formVenda() : () => formCliente();
-  $('#titulo').textContent = '💍 ' + (db.config.nomeLoja || 'Controle de Joias');
   mostrarPrecoVenda();
   const telas = { inicio: telaInicio, estoque: telaEstoque, vendas: telaVendas, clientes: telaClientes, mais: telaMais };
   $('#tela').innerHTML = telas[aba]();
@@ -312,7 +314,8 @@ function render() {
 function telaInicio() {
   if (!db.pecas.length) {
     return `<div class="card destaque" style="padding:18px">
-      <h2 style="margin-top:0">Bem-vinda! 👋</h2>
+      <img src="logo-redonda.png" alt="Ouríssima Joias" style="display:block;width:120px;height:120px;margin:0 auto 6px">
+      <h2 style="margin-top:0;text-align:center">Bem-vinda! 👋</h2>
       <p>Aqui você controla o estoque das joias, as vendas, os clientes e o que tem para receber.</p>
       <p><b>Já tem a planilha de estoque?</b> Importe e todo o histórico entra de uma vez: fornecedores, compras, peças vendidas e o que ainda está em estoque.</p>
       <div class="acoes"><button class="btn" onclick="importarPlanilha()">📥 Importar planilha (.xlsx)</button>
@@ -805,7 +808,7 @@ function enviarRecibo(vid) {
   const v = venda(vid), c = cliente(v.clienteId);
   const linhas = v.itens.map(i => { const p = peca(i.pecaId) || {}; return `• ${tituloCaso(p.descricao || 'Peça')} (${G(p.gramas)}) — ${R(i.valor)}`; });
   const abertas = (v.parcelas || []).filter(x => !x.pago);
-  let txt = `${db.config.nomeLoja || 'Joias'} 💍\nRecibo de compra${v.data ? ' — ' + D(v.data) : ''}\n${c ? 'Cliente: ' + c.nome + '\n' : ''}\n${linhas.join('\n')}\n\nTotal: ${R(totalVenda(v))}\nPagamento: ${v.forma || '—'}`;
+  let txt = `${db.config.nomeLoja || 'Ouríssima Joias'} 💍\nRecibo de compra${v.data ? ' — ' + D(v.data) : ''}\n${c ? 'Cliente: ' + c.nome + '\n' : ''}\n${linhas.join('\n')}\n\nTotal: ${R(totalVenda(v))}\nPagamento: ${v.forma || '—'}`;
   if (abertas.length) txt += `\n\nParcelas:\n` + abertas.map(x => `${D(x.venc)} — ${R(x.valor)}`).join('\n');
   txt += '\n\nObrigada pela preferência! ✨';
   window.open((c && c.tel ? 'https://wa.me/' + foneWa(c.tel) : 'https://wa.me/') + '?text=' + encodeURIComponent(txt), '_blank');
@@ -893,7 +896,7 @@ function excluirCliente(id) { if (!confirm('Excluir esta cliente?')) return; db.
 function telaMais() {
   return `  <h2>⚙️ Configurações</h2><div class="card">
     <h3 class="subtit" style="margin-top:0">Loja e preço</h3>
-    <label>Nome do negócio</label><input id="cfNome" value="${esc(db.config.nomeLoja)}" placeholder="Controle de Joias">
+    <label>Nome do negócio</label><input id="cfNome" value="${esc(db.config.nomeLoja)}" placeholder="Ouríssima Joias">
     <label>Preço de venda do grama (R$)</label><input id="cfPG" inputmode="decimal" value="${String(db.config.precoGrama).replace('.', ',')}">
     <div class="mini" style="margin-top:4px">Usado para sugerir o preço das peças novas: peso × preço do grama.</div>
     <div class="acoes"><button class="btn" onclick="salvarConfig()">Salvar</button>
