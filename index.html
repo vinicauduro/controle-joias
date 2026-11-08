@@ -192,7 +192,7 @@ const XLSX_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.m
 const TAXAS_PADRAO = { debito: 1.00, 1: 2.97, 2: 3.81, 3: 4.62, 4: 5.43, 5: 6.25, 6: 7.08, 7: 7.97, 8: 8.82, 9: 9.67, 10: 10.54, 11: 11.41, 12: 12.30 };
 const EMBALAGENS_PADRAO = [{ nome: 'Caixa + sacola P', valor: 10 }, { nome: 'Caixa + sacola M', valor: 15 }];
 function dbVazio() {
-  return { versao: 1, config: { nomeLoja: 'Ouríssima Joias', precoGrama: 1280, ultimoBackup: null, taxas: Object.assign({}, TAXAS_PADRAO), embalagens: EMBALAGENS_PADRAO.map(e => Object.assign({}, e)) },
+  return { versao: 1, config: { nomeLoja: 'Ouríssima Joias', precoGrama: 1280, ultimoBackup: null, maquinas: [{ id: 'm1', nome: 'Maquininha', taxas: Object.assign({}, TAXAS_PADRAO) }], embalagens: EMBALAGENS_PADRAO.map(e => Object.assign({}, e)) },
     fornecedores: [], clientes: [], pecas: [], vendas: [] };
 }
 let db = dbVazio();
@@ -201,7 +201,9 @@ completarConfig();
 // Dados de versões anteriores (ou vindos de outro aparelho) podem não ter as configurações novas.
 function completarConfig() {
   const c = db.config || (db.config = {});
-  if (!c.taxas) c.taxas = Object.assign({}, TAXAS_PADRAO);
+  // Antes havia uma tabela de taxas só; ela vira a primeira máquina.
+  if (!Array.isArray(c.maquinas) || !c.maquinas.length) c.maquinas = [{ id: 'm1', nome: 'Maquininha', taxas: Object.assign({}, c.taxas || TAXAS_PADRAO) }];
+  delete c.taxas;
   if (!Array.isArray(c.embalagens)) c.embalagens = EMBALAGENS_PADRAO.map(e => Object.assign({}, e));
   if (!c.precoGrama) c.precoGrama = 1280;
 }
@@ -265,7 +267,12 @@ const nomeCliente = id => (cliente(id) || {}).nome || 'Sem cliente';
 const despesasVenda = v => (Number(v.taxa) || 0) + (Number(v.embalagem) || 0) + (Number(v.frete) || 0) + (Number(v.ourives) || 0);
 const lucroVenda = v => totalVenda(v) - custoVenda(v) - despesasVenda(v);
 const ehCrediario = forma => /^(Crediário|Parcelado)/.test(forma || '');
-function taxaPct(forma, n) { const t = db.config.taxas || {}; return forma === 'Cartão de débito' ? (t.debito || 0) : forma === 'Cartão de crédito' ? (t[n] || 0) : 0; }
+const maquina = id => (db.config.maquinas || []).find(m => m.id === id) || (db.config.maquinas || [])[0] || { nome: '', taxas: {} };
+function taxaPct(forma, n, maqId) { const t = maquina(maqId).taxas || {}; return forma === 'Cartão de débito' ? (t.debito || 0) : forma === 'Cartão de crédito' ? (t[n] || 0) : 0; }
+function opcoesParcelas(maqId, sel) {
+  const t = maquina(maqId).taxas || {};
+  return Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}" ${String(i + 1) === String(sel) ? 'selected' : ''}>${i + 1}x · ${String(t[i + 1] || 0).replace('.', ',')}%</option>`).join('');
+}
 function custoVenda(v) { return v.itens.reduce((s, it) => s + ((peca(it.pecaId) || {}).custo || 0), 0); }
 function totalVenda(v) { return v.itens.reduce((s, it) => s + (Number(it.valor) || 0), 0); }
 function recebidoVenda(v) { return (v.parcelas || []).filter(x => x.pago).reduce((s, x) => s + x.valor, 0); }
@@ -701,6 +708,9 @@ function formVenda(preSel) {
   const pre = preSel && preSel.length === 1 ? peca(preSel[0]) : null;
   const cliPre = pre && pre.status === 'reservado' ? pre.reservadoPara : '';
   const embPadrao = (db.config.embalagens || []).length ? '0' : '';
+  // começa na última máquina usada neste aparelho
+  let maqPadrao = ''; try { maqPadrao = localStorage.getItem('joias_ultima_maquina') || ''; } catch (e) {}
+  maqPadrao = maquina(maqPadrao).id || '';
   abrirModal('Nova venda', `
     <label>Cliente</label><input id="vCli" list="dlClientes" value="${esc(cliPre)}" placeholder="Nome da cliente">${datalistClientes()}
     <div class="grade2"><div><label>Telefone (opcional)</label><input id="vTel" inputmode="tel"></div><div><label>Data</label><input id="vData" type="date" value="${hoje()}"></div></div>
@@ -709,8 +719,9 @@ function formVenda(preSel) {
     <div id="vSelecionadas"></div><div id="vLista" style="max-height:260px;overflow-y:auto"></div>
     <div class="grade2">
       <div><label>Forma de pagamento</label><select id="vForma">${FORMAS.map(f => `<option>${f}</option>`).join('')}</select></div>
-      <div id="vCartaoBox" class="oculto"><label>Parcelas no cartão</label><select id="vCartaoN">${Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i + 1}x · ${String((db.config.taxas || {})[i + 1] || 0).replace('.', ',')}%</option>`).join('')}</select></div>
+      <div id="vCartaoBox" class="oculto"><label>Parcelas no cartão</label><select id="vCartaoN">${opcoesParcelas(maqPadrao)}</select></div>
     </div>
+    <div id="vMaqBox" class="oculto"><label>Máquina</label><select id="vMaq">${(db.config.maquinas || []).map(m => `<option value="${m.id}" ${m.id === maqPadrao ? 'selected' : ''}>${esc(m.nome)}</option>`).join('')}</select></div>
     <div id="vParc" class="oculto"><div class="grade3">
       <div><label>Entrada (R$)</label><input id="vEnt" inputmode="decimal" value="0"></div>
       <div><label>Nº parcelas</label><input id="vN" type="number" min="1" value="2"></div>
@@ -720,7 +731,7 @@ function formVenda(preSel) {
       <div><label>Taxa da máquina (R$)</label><input id="vTaxa" inputmode="decimal" value="0"></div>
       <div><label>Embalagem</label><select id="vEmb">${opcoesEmbalagem(embPadrao)}</select></div>
     </div>
-    <div class="mini" style="margin-top:4px"><a href="#" onclick="event.preventDefault();abrirConfig('cfTaxas')" style="color:var(--ouro-escuro)">⚙️ Editar taxas e embalagens</a></div>
+    <div class="mini" style="margin-top:4px"><a href="#" onclick="event.preventDefault();abrirConfig('cfTaxas')" style="color:var(--ouro-escuro)">⚙️ Editar máquinas, taxas e embalagens</a></div>
     <div id="vEmbOutraBox" class="oculto"><label>Valor da embalagem (R$)</label><input id="vEmbV" inputmode="decimal" value="0"></div>
     <div class="grade2">
       <div><label>Frete de envio (R$)</label><input id="vFrete" inputmode="decimal" placeholder="0"></div>
@@ -751,10 +762,12 @@ function formVenda(preSel) {
   };
   const resumo = () => {
     const tot = totalSel(); let custo = 0; for (const id of sel.keys()) custo += peca(id).custo;
-    const forma = $('#vForma').value, nCartao = +$('#vCartaoN').value;
+    const forma = $('#vForma').value, nCartao = +$('#vCartaoN').value, maqId = $('#vMaq').value;
+    const cartao = forma === 'Cartão de crédito' || forma === 'Cartão de débito';
     $('#vCartaoBox').classList.toggle('oculto', forma !== 'Cartão de crédito');
+    $('#vMaqBox').classList.toggle('oculto', !cartao || (db.config.maquinas || []).length < 2);
     $('#vEmbOutraBox').classList.toggle('oculto', $('#vEmb').value !== 'outra');
-    const pct = taxaPct(forma, nCartao);
+    const pct = taxaPct(forma, nCartao, maqId);
     if (!taxaManual) $('#vTaxa').value = String(arred(tot * pct / 100)).replace('.', ',');
     const taxa = numCampo($('#vTaxa').value), emb = valorEmb(), frete = numCampo($('#vFrete').value), our = numCampo($('#vOurives').value);
     const luc = tot - custo - taxa - emb - frete - our;
@@ -772,6 +785,7 @@ function formVenda(preSel) {
   $('#vBusca').oninput = pintar;
   ['vEnt', 'vN', 'vVenc', 'vEmbV', 'vFrete', 'vOurives'].forEach(i => $('#' + i).oninput = resumo);
   ['vForma', 'vCartaoN'].forEach(i => $('#' + i).onchange = () => { taxaManual = false; resumo(); });
+  $('#vMaq').onchange = () => { $('#vCartaoN').innerHTML = opcoesParcelas($('#vMaq').value, $('#vCartaoN').value); taxaManual = false; resumo(); };
   $('#vEmb').onchange = resumo;
   $('#vTaxa').oninput = () => { taxaManual = true; resumo(); };
   pintar();
@@ -783,6 +797,8 @@ function formVenda(preSel) {
     const tot = itens.reduce((s, i) => s + i.valor, 0);
     let forma = $('#vForma').value;
     if (forma === 'Cartão de crédito') forma += ' ' + $('#vCartaoN').value + 'x';
+    const ehCartao = /^Cartão/.test(forma), maqNome = ehCartao ? maquina($('#vMaq').value).nome : '';
+    if (ehCartao) try { localStorage.setItem('joias_ultima_maquina', $('#vMaq').value); } catch (e) {}
     let parcelas;
     if (ehCrediario(forma)) {
       const ent = Math.min(tot, numCampo($('#vEnt').value)), n = Math.max(1, Math.min(48, parseInt($('#vN').value) || 1)), venc = $('#vVenc').value || somaMeses(data, 1);
@@ -793,7 +809,7 @@ function formVenda(preSel) {
     } else parcelas = [{ venc: data, valor: arred(tot), pago: true, dataPg: data }];
     const embSel = $('#vEmb').value;
     const v = { id: uid(), data, clienteId: acharOuCriarCliente(nomeCli, $('#vTel').value.trim()), itens, forma, parcelas,
-      taxa: arred(numCampo($('#vTaxa').value)), embalagem: arred(valorEmb()),
+      taxa: arred(numCampo($('#vTaxa').value)), maquina: maqNome, embalagem: arred(valorEmb()),
       frete: arred(numCampo($('#vFrete').value)), ourives: arred(numCampo($('#vOurives').value)),
       embalagemNome: embSel === '' ? '' : embSel === 'outra' ? 'Outra' : (db.config.embalagens[+embSel] || {}).nome || '',
       obs: $('#vObs').value.trim(), criadoEm: Date.now() };
@@ -811,7 +827,7 @@ function verVenda(id) {
   let html = `<div class="card">
     <div class="resumo-linha"><span>Cliente</span><b>${esc(nomeCliente(v.clienteId))}</b></div>
     <div class="resumo-linha"><span>Data</span><b>${v.data ? D(v.data) : 'não informada'}</b></div>
-    <div class="resumo-linha"><span>Pagamento</span><b>${esc(v.forma || '—')}</b></div>
+    <div class="resumo-linha"><span>Pagamento</span><b>${esc(v.forma || '—')}${v.maquina ? ' · ' + esc(v.maquina) : ''}</b></div>
     ${v.itens.map(i => { const p = peca(i.pecaId) || { descricao: '(peça excluída)', custo: 0, gramas: 0 }; return `<div class="resumo-linha"><span>${esc(p.descricao)}<br><span class="mini">${G(p.gramas)} · custo ${R(p.custo)}</span></span><b>${R(i.valor)}</b></div>`; }).join('')}
     <div class="resumo-linha"><span>Total</span><b>${R(tot)}</b></div>
     <div class="resumo-linha"><span>Custo das peças</span><span>− ${R(custo)}</span></div>
@@ -950,10 +966,11 @@ function telaMais() {
     <div class="mini" style="margin-top:4px">Usado para sugerir o preço das peças novas: peso × preço do grama.</div>
     <div class="acoes"><button class="btn" onclick="salvarConfig()">Salvar</button>
     <button class="btn sec" onclick="reprecificar()">Aplicar preço a todo o estoque</button></div></div>
-  <div class="card" id="cfTaxas" style="margin-top:10px"><h3 class="subtit" style="margin-top:0">💳 Taxas da máquina (%)</h3>
-    <div class="mini" style="margin-bottom:6px">Taxa total cobrada sobre o valor da venda. Na venda no cartão, o app calcula a taxa por aqui. Mude sempre que a maquininha mudar.</div>
-    <div class="grade3">${['debito', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(k => `<div><label>${k === 'debito' ? 'Débito' : k + 'x crédito'}</label><input class="cfTaxa" data-k="${k}" inputmode="decimal" value="${String((db.config.taxas || {})[k] ?? '').replace('.', ',')}"></div>`).join('')}</div>
-    <div class="acoes"><button class="btn" onclick="salvarTaxas()">Salvar taxas</button></div></div>
+  <div class="card" id="cfTaxas" style="margin-top:10px"><h3 class="subtit" style="margin-top:0">💳 Máquinas de cartão e taxas (%)</h3>
+    <div class="mini" style="margin-bottom:6px">Cadastre cada maquininha com as taxas dela (taxa total sobre o valor da venda). Na venda no cartão, ela escolhe a máquina e o app calcula a taxa.</div>
+    <div id="cfMaqs">${(db.config.maquinas || []).map(blocoMaquina).join('')}</div>
+    <div class="acoes"><button class="btn sec" onclick="document.getElementById('cfMaqs').insertAdjacentHTML('beforeend', blocoMaquina({ id: uid(), nome: '', taxas: {} }))">+ Máquina</button>
+    <button class="btn" onclick="salvarMaquinas()">Salvar máquinas</button></div></div>
   <div class="card" id="cfEmbalagens" style="margin-top:10px"><h3 class="subtit" style="margin-top:0">🎁 Embalagens (custo)</h3>
     <div class="mini">Quanto custa cada embalagem. Ela é descontada do lucro da venda.</div><div id="cfEmbs">${(db.config.embalagens || []).map(linhaEmbalagem).join('')}</div>
     <div class="acoes"><button class="btn sec" onclick="document.getElementById('cfEmbs').insertAdjacentHTML('beforeend', linhaEmbalagem({ nome: '', valor: '' }))">+ Embalagem</button>
@@ -984,9 +1001,20 @@ function linhaEmbalagem(e) {
     <div><label>Custo (R$)</label><input class="cfEmbValor" inputmode="decimal" value="${String(e.valor ?? '').replace('.', ',')}"></div>
     <button class="btn perigo peq" style="padding:0;height:44px" title="Remover" onclick="this.closest('.cfEmb').remove()">✕</button></div>`;
 }
-function salvarTaxas() {
-  const t = {}; document.querySelectorAll('.cfTaxa').forEach(i => { t[i.dataset.k] = numCampo(i.value); });
-  db.config.taxas = t; salvar(); render(); toast('Taxas salvas');
+function blocoMaquina(m) {
+  return `<div class="cfMaq" data-id="${m.id}" style="border:1px solid var(--borda);border-radius:12px;padding:10px;margin-top:10px;background:#fff">
+    <div style="display:grid;grid-template-columns:1fr 44px;gap:8px;align-items:end">
+      <div><label style="margin-top:0">Nome da máquina</label><input class="cfMaqNome" value="${esc(m.nome)}" placeholder="Ex.: Stone, PagSeguro, InfinitePay"></div>
+      <button class="btn perigo peq" style="padding:0;height:44px" title="Remover máquina" onclick="if(confirm('Remover esta máquina?'))this.closest('.cfMaq').remove()">✕</button></div>
+    <div class="grade3">${['debito', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(k => `<div><label>${k === 'debito' ? 'Débito' : k + 'x crédito'}</label><input class="cfTaxa" data-k="${k}" inputmode="decimal" value="${String((m.taxas || {})[k] ?? '').replace('.', ',')}"></div>`).join('')}</div></div>`;
+}
+function salvarMaquinas() {
+  const l = [...document.querySelectorAll('.cfMaq')].map((d, i) => {
+    const taxas = {}; d.querySelectorAll('.cfTaxa').forEach(x => { taxas[x.dataset.k] = numCampo(x.value); });
+    return { id: d.dataset.id, nome: d.querySelector('.cfMaqNome').value.trim() || 'Máquina ' + (i + 1), taxas };
+  });
+  if (!l.length) return toast('Deixe pelo menos uma máquina');
+  db.config.maquinas = l; salvar(); render(); toast('Máquinas salvas');
 }
 function salvarEmbalagens() {
   db.config.embalagens = [...document.querySelectorAll('.cfEmb')].map(d => ({ nome: d.querySelector('.cfEmbNome').value.trim(), valor: numCampo(d.querySelector('.cfEmbValor').value) })).filter(e => e.nome);
@@ -1160,7 +1188,7 @@ async function exportarExcel() {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(db.pecas.filter(emEstoque).map(linhaPeca)), 'Estoque');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(db.pecas.map(linhaPeca)), 'Todas as peças');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(db.vendas.map(v => ({ Data: v.data ? D(v.data) : '', Cliente: nomeCliente(v.clienteId), Peças: v.itens.map(i => (peca(i.pecaId) || {}).descricao).join(', '),
-      Total: totalVenda(v), Custo: arred(custoVenda(v)), 'Taxa máquina': v.taxa || 0, Embalagem: v.embalagem || 0, 'Frete envio': v.frete || 0, Ourives: v.ourives || 0, 'Lucro líquido': arred(lucroVenda(v)), Pagamento: v.forma, 'Em aberto': emAbertoVenda(v), Obs: v.obs }))), 'Vendas');
+      Total: totalVenda(v), Custo: arred(custoVenda(v)), 'Taxa máquina': v.taxa || 0, Embalagem: v.embalagem || 0, 'Frete envio': v.frete || 0, Ourives: v.ourives || 0, 'Lucro líquido': arred(lucroVenda(v)), Pagamento: v.forma, Máquina: v.maquina || '', 'Em aberto': emAbertoVenda(v), Obs: v.obs }))), 'Vendas');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(todasParcelas().filter(o => o.venda.parcelas.length > 1).map(o => ({ Cliente: nomeCliente(o.venda.clienteId), Vencimento: D(o.parcela.venc), Valor: o.parcela.valor, Situação: o.parcela.pago ? 'Paga' : (o.parcela.venc < hoje() ? 'Vencida' : 'A vencer'), 'Pago em': o.parcela.dataPg ? D(o.parcela.dataPg) : '' }))), 'Parcelas');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(db.clientes.map(c => { const r = resumoCliente(c); return { Nome: c.nome, Telefone: c.tel, Aniversário: c.aniversario || '', Compras: r.vendas.length, 'Total comprado': r.total, 'Em aberto': arred(r.deve), Obs: c.obs }; })), 'Clientes');
     XLSX.writeFile(wb, 'joias-' + hoje() + '.xlsx');

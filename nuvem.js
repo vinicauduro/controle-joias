@@ -107,7 +107,9 @@ const Nuvem = (() => {
     if (r.colecao === 'config') {
       if (r.excluido || !r.dados) return false;
       const h = hash(r.dados); if (st.snap[k] === h) return false;
-      db.config = Object.assign({}, db.config, r.dados); st.snap[k] = hash(db.config); return true;
+      db.config = Object.assign({}, db.config, r.dados);
+      if (typeof completarConfig === 'function') completarConfig(); // configuração de versão antiga vinda de outro aparelho
+      st.snap[k] = hash(db.config); return true;
     }
     if (!COLECOES.includes(r.colecao)) return false;
     const lista = db[r.colecao] || (db[r.colecao] = []);
